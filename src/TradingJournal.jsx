@@ -6,6 +6,8 @@ import AINews from "./AINews.jsx";
 import TargetSimulator from "./TargetSimulator.jsx";
 import RiskGuardCard from "./RiskGuardCard.jsx";
 import StatsCard from "./StatsCard.jsx";
+import SetupStatsCard from "./SetupStatsCard.jsx";
+import { SETUP_TAGS, SETUP_CHECKLIST, NO_SETUP_ID } from "./setupConfig.js";
 import CalendarPopover from "./CalendarPopover.jsx";
 import MonthActionMenu from "./MonthActionMenu.jsx";
 import MonthDropdown from "./MonthDropdown.jsx";
@@ -49,6 +51,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
   const [menuPos, setMenuPos] = useState(null);
   const [confirmDeleteFor, setConfirmDeleteFor] = useState(null);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null); // { id, date } — konfirmasi hapus transaksi
+  const [setupGate, setSetupGate] = useState(null); // null = tertutup; { tag, checks, warned, note } — tag setup + checklist sebelum entry
   const [newMonthOpen, setNewMonthOpen] = useState(false);
   const [newMonthBalance, setNewMonthBalance] = useState("100");
   const [monthDdOpen, setMonthDdOpen] = useState(false); // dropdown bulan aktif di kartu Input Transaksi
@@ -564,7 +567,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
     setNewMonthBalance("100");
   };
 
-  const addEntry = () => {
+  const addEntry = (setup = "") => {
     if (!activeMonth || !selectedDate) return;
     const m = (journalRef.current.months || months)[activeMonth];
     if (!m || m.entries.length >= MAX_ROWS) return;
@@ -593,6 +596,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       loss: "",
       komisi: "",
       withdraw: "",
+      ...(typeof setup === "string" && setup ? { setup } : {}),
     };
     updateMonths((prev) => {
       const pm = prev[activeMonth];
@@ -600,6 +604,31 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       return { ...prev, [activeMonth]: { ...pm, entries: [...pm.entries, entry] } };
     });
     setSelectedDate(targetKey);
+  };
+
+  const openSetupGate = () => {
+    if (!activeMonth || !selectedDate) return;
+    setSetupGate({ tag: null, checks: SETUP_CHECKLIST.map(() => false), warned: false, note: "" });
+  };
+
+  const proceedSetupGate = () => {
+    if (!setupGate) return;
+    const { tag, checks, warned } = setupGate;
+    if (!tag) { setSetupGate({ ...setupGate, note: "Pilih tag setup dulu." }); return; }
+    const left = checks.filter((c) => !c).length;
+    const issue = tag === NO_SETUP_ID ? "none" : left > 0 ? "check" : null;
+    if (issue && !warned) {
+      setSetupGate({
+        ...setupGate,
+        warned: true,
+        note: issue === "none"
+          ? "Tanpa setup tetap dicatat apa adanya dan masuk statistik. Tekan lagi untuk lanjut."
+          : `Masih ${left} item belum dicentang. Tekan lagi untuk tetap lanjut.`,
+      });
+      return;
+    }
+    addEntry(tag);
+    setSetupGate(null);
   };
 
   const updateEntry = (id, field, value) => {
@@ -1268,7 +1297,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
-                  onClick={addEntry}
+                  onClick={openSetupGate}
                   title={selectedDateHasEntry ? "Tanggal ini sudah punya transaksi — transaksi baru dibuat di tanggal berikutnya" : "Tambah transaksi untuk tanggal ini"}
                   style={{
                     width: "100%",
@@ -1322,6 +1351,15 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                         <td className="tj-mono" style={cell("first", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--muted)", textAlign: "center" })}>{i + 1}</td>
                         <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), whiteSpace: "nowrap", textAlign: "center", color: isWeekendRow ? "var(--red)" : undefined })}>
                           {fmtDate(r.date)}
+                          <select
+                            aria-label="Tag setup"
+                            value={r.setup || ""}
+                            onChange={(e) => updateEntry(r.id, "setup", e.target.value)}
+                            style={{ display: "block", margin: "2px auto 0", background: "transparent", border: "none", padding: 0, fontSize: s(10, 9), fontWeight: 700, textAlign: "center", textAlignLast: "center", appearance: "none", WebkitAppearance: "none", cursor: "pointer", maxWidth: "100%", color: r.setup === NO_SETUP_ID ? "var(--red)" : r.setup ? "var(--green)" : "var(--muted)" }}
+                          >
+                            <option value="">Tag?</option>
+                            {SETUP_TAGS.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}
+                          </select>
                         </td>
                         <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--muted)", textAlign: "center" })}>{fmtMoney(r.start)}</td>
                         <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--green)", opacity: 0.85, textAlign: "center" })}>{fmtMoney(r.target)}</td>
@@ -1402,6 +1440,9 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 ["Tahunan", yearlyGrowthPct],
               ]}
             />
+
+            {/* Statistik Setup: hasil harian per tag setup (dihitung dari semua bulan) */}
+            <SetupStatsCard months={months} />
 
             {/* Balance growth chart */}
             {rows.length > 0 && (
@@ -1564,6 +1605,74 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       </nav>
 
       {/* Modal konfirmasi Import Backup — muncul setelah file .json dipilih & valid */}
+      {setupGate && (
+        <div
+          onClick={() => setSetupGate(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: s(20, 12), padding: 22, maxWidth: 380, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <ShieldCheck size={16} color="var(--gold)" />
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Sebelum entry</h3>
+            </div>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>No Setup = No Entry. Pilih tag setup, lalu cek daftar di bawah.</p>
+
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Tag setup</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+              {SETUP_TAGS.map((t) => {
+                const on = setupGate.tag === t.id;
+                const isNone = t.id === NO_SETUP_ID;
+                const color = isNone ? "var(--red)" : "var(--green)";
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSetupGate({ ...setupGate, tag: t.id, warned: false, note: "" })}
+                    style={{ padding: "7px 12px", minHeight: 34, borderRadius: BTN_RADIUS, fontSize: 13, fontWeight: 700, cursor: "pointer", background: on ? mix(color, 16) : "transparent", border: `1.5px solid ${on ? color : "var(--border)"}`, color: on ? color : "var(--muted)" }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Checklist</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+              {SETUP_CHECKLIST.map((text, i) => (
+                <label key={text} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)", padding: "8px 10px", minHeight: 40, border: "1px solid var(--border)", borderRadius: BTN_RADIUS, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!setupGate.checks[i]}
+                    onChange={(e) => setSetupGate({ ...setupGate, checks: setupGate.checks.map((c, j) => (j === i ? e.target.checked : c)), warned: false, note: "" })}
+                    style={{ width: 18, height: 18, accentColor: "var(--gold)", flex: "0 0 auto" }}
+                  />
+                  <span>{text}</span>
+                </label>
+              ))}
+            </div>
+
+            {setupGate.note && (
+              <p style={{ fontSize: 12.5, color: "var(--red)", margin: "0 0 12px", lineHeight: 1.45 }}>{setupGate.note}</p>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={proceedSetupGate}
+                style={{ flex: 1, background: mix("var(--gold)", 14), color: "var(--gold)", border: "1.5px solid var(--gold)", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                {setupGate.warned ? "Tetap lanjut" : "Lanjut isi transaksi"}
+              </button>
+              <button
+                onClick={() => setSetupGate(null)}
+                style={{ flex: "0 0 auto", padding: "9px 16px", background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {pendingDeleteEntry && (
         <div
           onClick={() => setPendingDeleteEntry(null)}
