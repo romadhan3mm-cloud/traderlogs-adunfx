@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { fmtMoney } from "./journalMath.js";
-import { s, INNER_BG, INNER_BORDER, CardShell, CardHeader, BOX_RADIUS } from "./CardHeader.jsx";
+import { s, INNER_BG, INNER_BORDER, CardShell, CardHeader, HeaderBadge, BOX_RADIUS } from "./CardHeader.jsx";
 import { computeSetupStats, NO_SETUP_ID } from "./setupConfig.js";
 
 // Kartu "Statistik Setup": membandingkan hasil hari bertag setup dengan hari "Tanpa setup".
@@ -22,18 +22,34 @@ function Box({ label, data, tone }) {
 
 export default function SetupStatsCard({ months }) {
   const st = computeSetupStats(months);
+  const [open, setOpen] = useState(false);
+  // Terlipat: subjudul berisi ringkasan satu baris, supaya hasil terlihat tanpa membuka kartu.
+  const summary = st.tagged === 0
+    ? "Belum ada hari yang diberi tag."
+    : `Sesuai setup ${st.withSetup.days ? netText(st.withSetup.net) : "-"} · Tanpa setup ${st.noSetup.days ? netText(st.noSetup.net) : "-"}`;
   return (
     <CardShell ariaLabel="Statistik Setup">
       <CardHeader
+        divider={open}
         icon={
           <svg width="52%" height="52%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }} aria-hidden="true" focusable="false">
             <path d="m4 6 1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9" />
           </svg>
         }
         title="Statistik Setup"
-        subtitle="Hasil harian per tag setup."
+        subtitle={open ? "Hasil harian per tag setup." : summary}
+        badge={
+          <HeaderBadge
+            onClick={() => setOpen((v) => !v)}
+            active={open}
+            ariaExpanded={open}
+            ariaLabel="Tampilkan atau sembunyikan rincian statistik setup"
+            icon={<svg width={s(18, 10)} height={s(18, 10)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }} aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" style={{ transformOrigin: "center", transform: open ? "rotate(180deg)" : "none" }} /></svg>}
+            label="RINCIAN"
+          />
+        }
       />
-      {st.tagged === 0 ? (
+      {!open ? null : st.tagged === 0 ? (
         <div style={{ fontSize: s(13, 10), color: "var(--muted)", lineHeight: 1.5, textAlign: "center", padding: `${s(6, 3)} ${s(8, 4)}` }}>
           Belum ada hari yang diberi tag. Pilih tag saat menekan Tambah Transaksi, atau lewat tulisan kecil di bawah tanggal pada tabel.
         </div>
@@ -54,7 +70,7 @@ export default function SetupStatsCard({ months }) {
           </div>
         </>
       )}
-      {st.untagged > 0 && (
+      {open && st.untagged > 0 && (
         <div style={{ fontSize: s(11, 9), color: "var(--muted)", textAlign: "center", marginTop: s(10, 5) }}>
           {st.untagged} hari belum diberi tag dan tidak dihitung.
         </div>

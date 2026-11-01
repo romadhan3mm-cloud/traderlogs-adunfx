@@ -1429,6 +1429,9 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
               </div>
             </CardShell>
 
+            {/* Statistik Setup: tepat di bawah Input Transaksi, terlipat bawaan (ringkasan satu baris) */}
+            <SetupStatsCard months={months} />
+
             {/* Statistik: kartu bergaya baru (cincin winrate + 4 kartu angka + persentase periode). Hanya tampilan; angka dari stats & growthPct di atas */}
             <StatsCard
               stats={stats}
@@ -1440,9 +1443,6 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 ["Tahunan", yearlyGrowthPct],
               ]}
             />
-
-            {/* Statistik Setup: hasil harian per tag setup (dihitung dari semua bulan) */}
-            <SetupStatsCard months={months} />
 
             {/* Balance growth chart */}
             {rows.length > 0 && (
