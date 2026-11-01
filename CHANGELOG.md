@@ -6,6 +6,28 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.107 — Max Drawdown bulan aktif di kartu Statistik
+
+Menambah satu file baru dan satu tampilan. Menyentuh `src/drawdown.js` (baru), `tests/drawdown.test.mjs` (baru), `src/StatsCard.jsx`, `README.md` (daftar file), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Pita "Max Drawdown" di tengah empat kartu angka (di antara baris Total Profit/Total Loss dan baris Komisi/Profit Factor), berdiri sendiri dengan jarak sama seperti jarak antar kartu. Empat kartu angka tidak berubah.
+- Isi pita: ikon dan label di kiri, nilai di kanan (mis. `-$7.50 · -6.25%`), dan satu baris keterangan di bawahnya: `Puncak $120.00 → lembah $112.50`.
+- Gaya: latar `mix("var(--red)", 12)` dan garis `mix("var(--red)", 45)` bila ada penurunan. Bila saldo belum pernah turun dari puncak: gaya kotak dalam netral (`INNER_BG`, `INNER_BORDER`), teks `var(--muted)`, nilai `$0.00 · 0%`, keterangan "Saldo belum pernah turun dari puncak." Tanpa transaksi: "Belum ada transaksi bulan ini."
+- Hitungan di fungsi murni baru `computeMaxDrawdown(rows)` (`src/drawdown.js`): saldo per akhir hari dari saldo awal bulan; puncak pertama = saldo awal; penurunan terbesar dari puncak ke lembah berikutnya; persen = penurunan / puncak. Laba bersih harian = profit - loss - komisi. Penarikan (WD) tidak dihitung sebagai penurunan. Dihitung dari baris bulan aktif.
+- Tes baru `tests/drawdown.test.mjs` (6 tes, nilai dihitung tangan): kasus puncak 120 ke 112.50, hanya naik, penarikan diabaikan, komisi, penurunan terbesar (bukan yang terakhir), dan data kosong/saldo awal 0.
+
+### Tidak berubah
+`computeStats`, `computeRows`, dan `journalMath.js`; empat kartu angka, cincin winrate, Profit Bersih, grafik; ekspor Excel; data dan penyimpanan; semua file lain.
+
+### Catatan
+Drawdown dihitung per akhir hari, karena jurnal mencatat per hari; penurunan di dalam satu hari tidak terlihat. Kartu Statistik bertambah tinggi sesuai tinggi pita.
+
+### Pengujian
+`npm test` lulus (tes drawdown ikut). Sintaks JSX dicek dengan tsc. Tampilan di HP dan tema terang/gelap belum diuji; build Vite penuh belum dijalankan.
+
+---
+
 ## v1.9.106 — Profit Bersih ditambahkan ke blok statistik ekspor Excel
 
 Menyentuh `src/TradingJournal.jsx` (satu baris di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.

@@ -153,6 +153,7 @@ traderlogs/
     ├── storageShim.js       (window.storage → dipetakan ke tabel Supabase)
     ├── TradingJournal.jsx   (komponen utama jurnal trading)
     ├── journalMath.js       (fungsi murni: format, hitung baris/statistik, rekomendasi lot)
+    ├── drawdown.js          (fungsi murni: Max Drawdown dari baris bulan aktif)
     ├── journalWidgets.jsx   (StatRing, StatRowList, EditableTagline)
     ├── tjStyles.js          (CSS utama jurnal)
     ├── TradingViewChart.jsx (widget chart XAUUSD dari TradingView)
