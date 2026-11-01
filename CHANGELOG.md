@@ -6,6 +6,22 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.108 — Pita Max Drawdown disusun vertikal rata tengah
+
+Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Isi pita Max Drawdown kini tersusun vertikal dan rata tengah: ikon (panah turun) dan "Max Drawdown" di atas, keterangan "Puncak ... → lembah ..." di tengah, angka dolar dan persen di bawah.
+- Sebelumnya judul dan angka sebaris dengan keterangan di bawahnya. Lebar, warna, radius, dan jarak pita ke empat kartu tidak berubah; tinggi pita bertambah sekitar satu baris kecil karena kini tiga baris.
+
+### Tidak berubah
+Hitungan Max Drawdown (`src/maxDrawdown.js`), `computeStats`, `computeRows`, `journalMath.js`, `TradingJournal.jsx`, empat kartu angka, cincin winrate, grafik, data, dan semua file lain.
+
+### Pengujian
+`npm test` lulus. Render pita dicoba dengan data contoh. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
 ## v1.9.107 — Max Drawdown di antara empat kartu angka Statistik
 
 Menyentuh `src/StatsCard.jsx`, file baru `src/maxDrawdown.js` dan `tests/maxDrawdown.test.mjs`, `CHANGELOG.md`, dan versi di `package.json`.

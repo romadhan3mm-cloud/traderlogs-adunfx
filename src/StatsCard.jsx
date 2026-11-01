@@ -29,6 +29,7 @@ function MetricCard({ icon, bg, label, value, valueColor }) {
 }
 
 // Pita Max Drawdown: berdiri sendiri di antara dua baris kartu angka (tidak menyentuh kartu; jaraknya sama dengan jarak antar kartu).
+// Susunan vertikal rata tengah: ikon + judul di atas, keterangan di tengah, angka di bawah.
 // Angka dari computeMaxDrawdown (src/maxDrawdown.js): penurunan terbesar dari puncak saldo ke lembah berikutnya pada bulan aktif.
 // Penarikan (WD) tidak dihitung sebagai penurunan. Merah bila ada penurunan, netral bila belum pernah turun dari puncak.
 function DrawdownRibbon({ dd }) {
@@ -37,12 +38,13 @@ function DrawdownRibbon({ dd }) {
   const valueText = !dd ? "—" : has ? `-${fmtMoney(dd.amount)} · -${dd.pct.toFixed(2)}%` : `${fmtMoney(0)} · 0%`;
   const caption = !dd ? "Belum ada data." : has ? `Puncak ${fmtMoney(dd.peak)} → lembah ${fmtMoney(dd.trough)}` : "Belum ada penurunan dari puncak.";
   return (
-    <div role="group" aria-label="Max Drawdown" style={{ gridColumn: "1 / -1", minWidth: 0, borderRadius: s(14, 8), padding: `${s(8, 4)} ${s(10, 5)}`, background: has ? mix("var(--red)", 10) : INNER_BG, border: has ? `1px solid ${mix("var(--red)", 40)}` : INNER_BORDER, textAlign: "center" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: s(8, 4) }}>
-        <span style={{ fontSize: s(14, 8.5), color: tone, lineHeight: 1.2 }}>Max Drawdown</span>
-        <span className="tj-mono" style={{ fontSize: "max(10px, min(18px, 3.6cqw))", fontWeight: 800, color: tone, whiteSpace: "nowrap" }}>{valueText}</span>
+    <div role="group" aria-label="Max Drawdown" style={{ gridColumn: "1 / -1", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", borderRadius: s(14, 8), padding: `${s(8, 4)} ${s(10, 5)}`, background: has ? mix("var(--red)", 10) : INNER_BG, border: has ? `1px solid ${mix("var(--red)", 40)}` : INNER_BORDER }}>
+      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: s(5, 3), fontSize: s(14, 8.5), color: tone, lineHeight: 1.2 }}>
+        <Svg size={s(14, 9)} stroke={2.4}><path d="m3 7 6 6 4-4 8 8M15 17h6v-6" /></Svg>
+        <span>Max Drawdown</span>
       </div>
-      <div style={{ fontSize: s(11, 7), color: "var(--muted)", marginTop: s(3, 2), lineHeight: 1.2 }}>{caption}</div>
+      <div style={{ fontSize: s(11, 7), color: "var(--muted)", margin: `${s(3, 2)} 0`, lineHeight: 1.2 }}>{caption}</div>
+      <div className="tj-mono" style={{ fontSize: "max(10px, min(18px, 3.6cqw))", fontWeight: 800, color: tone, whiteSpace: "nowrap" }}>{valueText}</div>
     </div>
   );
 }
