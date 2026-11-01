@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 // TraderLogs — jurnal trading XAUUSD, versi dengan perbandingan bulan
-import { Plus, Download, Upload, Trash2, ChevronDown, ChevronUp, MoreVertical, MoreHorizontal, Check, Archive, ArchiveRestore, X, TrendingUp, TrendingDown, Sun, Moon, LogOut, LineChart as ChartIcon, BookOpen, RefreshCw, Target as TargetIcon, ChevronLeft, ChevronRight, CalendarDays, ShieldCheck, ShieldAlert, AlertTriangle, Newspaper } from "lucide-react";
+import { Plus, Download, Upload, Trash2, ChevronDown, ChevronUp, MoreVertical, MoreHorizontal, Check, Archive, ArchiveRestore, X, TrendingUp, TrendingDown, Sun, Moon, LogOut, LineChart as ChartIcon, BookOpen, RefreshCw, Target as TargetIcon, ChevronLeft, ChevronRight, CalendarDays, ShieldCheck, ShieldAlert, AlertTriangle, Newspaper, List } from "lucide-react";
 import TradingViewChart from "./TradingViewChart.jsx";
 import AINews from "./AINews.jsx";
 import TargetSimulator from "./TargetSimulator.jsx";
 import RiskGuardCard from "./RiskGuardCard.jsx";
 import StatsCard from "./StatsCard.jsx";
+import SetupStatsSection from "./SetupStatsSection.jsx";
+import { SETUP_TAGS, SETUP_CHECKLIST, NO_SETUP_ID } from "./setupConfig.js";
+import CalendarPopover from "./CalendarPopover.jsx";
+import MonthActionMenu from "./MonthActionMenu.jsx";
+import MonthDropdown from "./MonthDropdown.jsx";
+import RecommendationCard from "./RecommendationCard.jsx";
+import { CardShell, CardHeader, HeaderBadge, BLUE, mix, s, INNER_LINE, INNER_BG, BTN_RADIUS, BOX_RADIUS } from "./CardHeader.jsx";
 import Splash from "./Splash.jsx";
 import { LogoLockup, PageBackdrop, saveThemeLocal, getThemeLocal, hasThemeLocal, needsLookReset } from "./Brand.jsx";
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, AreaChart, Area, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
@@ -18,7 +25,11 @@ import { MAX_IMPORT_BYTES, parseBackupText, mergeJournals, sanitizeJournal, buil
 const APP_VERSION = __APP_VERSION__;
 const APP_CREATED_YEAR = 2026;
 
+// Garis grid horizontal tanpa garis paling bawah: garis itu berimpit dengan sumbu X dan terlihat putus-putus.
+const gridWithoutBottom = (p) => (isBottomGridLine(p) ? null : <line key={p.key} x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2} stroke={p.stroke} strokeDasharray={p.strokeDasharray} />);
+
 import { FONTS_CSS } from "./tjStyles.js";
+import { isBottomGridLine } from "./chartUtils.js";
 import {
   MAX_ROWS, RISK_PCT_PER_DAY, SL_DISTANCE_USD, TARGET_MAX_LAYERS, CAPITAL_LOT_REF_TIERS,
   fmtMoney, formatMoneyInputValue, parseMoneyInputValue, fmtDate, fmtDayKey,
@@ -34,13 +45,18 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCapitalRef, setShowCapitalRef] = useState(false);
+  const [showSetupStats, setShowSetupStats] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [menuOpenFor, setMenuOpenFor] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [confirmDeleteFor, setConfirmDeleteFor] = useState(null);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null); // { id, date } — konfirmasi hapus transaksi
+  const [setupGate, setSetupGate] = useState(null); // null = tertutup; { tag, checks, warned, note } — tag setup + checklist sebelum entry
   const [newMonthOpen, setNewMonthOpen] = useState(false);
   const [newMonthBalance, setNewMonthBalance] = useState("100");
+  const [monthDdOpen, setMonthDdOpen] = useState(false); // dropdown bulan aktif di kartu Input Transaksi
+  const [monthDdPos, setMonthDdPos] = useState(null);
   const [selectedDate, setSelectedDate] = useState(() => fmtDayKey(new Date().toISOString()));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => todayMonthKey());
@@ -552,7 +568,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
     setNewMonthBalance("100");
   };
 
-  const addEntry = () => {
+  const addEntry = (setup = "") => {
     if (!activeMonth || !selectedDate) return;
     const m = (journalRef.current.months || months)[activeMonth];
     if (!m || m.entries.length >= MAX_ROWS) return;
@@ -581,6 +597,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       loss: "",
       komisi: "",
       withdraw: "",
+      ...(typeof setup === "string" && setup ? { setup } : {}),
     };
     updateMonths((prev) => {
       const pm = prev[activeMonth];
@@ -588,6 +605,31 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       return { ...prev, [activeMonth]: { ...pm, entries: [...pm.entries, entry] } };
     });
     setSelectedDate(targetKey);
+  };
+
+  const openSetupGate = () => {
+    if (!activeMonth || !selectedDate) return;
+    setSetupGate({ tag: null, checks: SETUP_CHECKLIST.map(() => false), warned: false, note: "" });
+  };
+
+  const proceedSetupGate = () => {
+    if (!setupGate) return;
+    const { tag, checks, warned } = setupGate;
+    if (!tag) { setSetupGate({ ...setupGate, note: "Pilih tag setup dulu." }); return; }
+    const left = checks.filter((c) => !c).length;
+    const issue = tag === NO_SETUP_ID ? "none" : left > 0 ? "check" : null;
+    if (issue && !warned) {
+      setSetupGate({
+        ...setupGate,
+        warned: true,
+        note: issue === "none"
+          ? "Tanpa setup tetap dicatat apa adanya dan masuk statistik. Tekan lagi untuk lanjut."
+          : `Masih ${left} item belum dicentang. Tekan lagi untuk tetap lanjut.`,
+      });
+      return;
+    }
+    addEntry(tag);
+    setSetupGate(null);
   };
 
   const updateEntry = (id, field, value) => {
@@ -668,10 +710,11 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       ["Total Profit", Number(stats.totalProfit.toFixed(2))],
       ["Total Loss", -Number(stats.totalLoss.toFixed(2))],
       ["Total Komisi", -Number(stats.totalKomisi.toFixed(2))],
+      ["Profit Bersih", Number((stats.totalProfit - stats.totalLoss - stats.totalKomisi).toFixed(2))],
       ["Win Trades", stats.winTrades],
       ["Loss Trades", stats.lossTrades],
       ["Winrate", stats.winrate === null ? "N/A" : `${(stats.winrate * 100).toFixed(1)}%`],
-      ["RR", stats.rr === null ? "N/A" : stats.rr.toFixed(2)],
+      ["Profit Factor", stats.rr === null ? "N/A" : stats.rr.toFixed(2)],
       ["End Balance", Number((rows.length ? rows[rows.length - 1].end : m.initialBalance).toFixed(2))],
     ];
 
@@ -750,14 +793,14 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button
               onClick={loadJournal}
-              style={{ background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: 7, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              style={{ background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: BTN_RADIUS, padding: "9px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >
               Coba lagi
             </button>
             {onLogout && (
               <button
                 onClick={onLogout}
-                style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 7, padding: "9px 22px", fontSize: 13, cursor: "pointer" }}
+                style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "9px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
               >
                 Keluar
               </button>
@@ -792,6 +835,16 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
   const calendarCells = Array.from({ length: Math.ceil((calendarOffset + calendarDaysCount) / 7) * 7 }, (_, i) => {
     const day = i - calendarOffset + 1;
     return day < 1 || day > calendarDaysCount ? null : `${calendarMonthKey}-${String(day).padStart(2, "0")}`;
+  });
+  // Hasil harian dari semua bulan (untuk disinkronkan ke Tabel harian di tab Simulasi):
+  // net = profit - loss - komisi (withdraw tidak dihitung), dibandingkan dengan Target 3% baris itu.
+  const journalDayResults = {};
+  Object.values(months || {}).forEach((monthData) => {
+    if (!monthData) return;
+    computeRows(monthData.entries || [], monthData.initialBalance).forEach((r) => {
+      const net = Math.round(((Number(r.profit) || 0) - (Number(r.loss) || 0) - (Number(r.komisi) || 0) + Number.EPSILON) * 100) / 100;
+      journalDayResults[fmtDayKey(r.date)] = { net, target: r.target };
+    });
   });
   const transactionDateKeys = new Set(Object.values(months || {}).flatMap((monthData) => (monthData?.entries || []).map((entry) => fmtDayKey(entry.date))));
   const changeCalendarMonth = (delta) => {
@@ -865,11 +918,54 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
     ? { grid: "#DCE3EE", tick: "#6B7C93", tooltipBg: "#FFFFFF", tooltipBorder: "#DCE3EE", tooltipLabel: "#6B7C93", dotFill: "#F4F6FA", refLine: "#6B7C93" }
     : { grid: "#223A5E", tick: "#8A9BB5", tooltipBg: "#162A47", tooltipBorder: "#223A5E", tooltipLabel: "#8A9BB5", dotFill: "#0A1628", refLine: "#8A9BB5" };
 
+  const archivedKeys = order.filter((k) => months?.[k]?.archived).sort((a, b) => b.localeCompare(a));
+  const archiveItems = archivedKeys.map((key) => (
+    <div key={key} style={{ padding: "8px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <span className="tj-mono" style={{ fontSize: 13, color: "var(--muted)" }}>{monthKeyToLabel(key)}</span>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={() => { restoreMonth(key); setMonthDdOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "var(--gold)", fontSize: 11, cursor: "pointer", padding: 0 }}>
+            <ArchiveRestore size={12} /> Aktifkan
+          </button>
+          <button onClick={() => setConfirmDeleteFor(confirmDeleteFor === key ? null : key)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer", padding: 0 }}>
+            <Trash2 size={12} /> Hapus
+          </button>
+        </div>
+      </div>
+      {confirmDeleteFor === key && (
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: "var(--text)" }}>Hapus permanen? Data tidak bisa dikembalikan.</span>
+          <button onClick={() => deleteMonthPermanent(key)} style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: BTN_RADIUS, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Ya</button>
+          <button onClick={() => setConfirmDeleteFor(null)} style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Batal</button>
+        </div>
+      )}
+    </div>
+  ));
+
+  const newMonthForm = newMonthOpen ? (
+        <div style={{ background: INNER_BG, border: INNER_LINE, borderRadius: s(14, 8), padding: 12, marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "var(--muted)" }}>Start Balance ($)</span>
+          <input
+            type="number"
+            className="tj-input tj-mono"
+            style={{ width: 100 }}
+            value={newMonthBalance}
+            onChange={(e) => setNewMonthBalance(e.target.value)}
+          />
+          <button
+            onClick={createMonth}
+            style={{ background: "var(--gold-grad)", color: "#0A1628", fontSize: 13, fontWeight: 700, padding: "6px 14px", borderRadius: BTN_RADIUS, border: "none", cursor: "pointer" }}
+          >
+            Buat Bulan Ini
+          </button>
+        </div>
+  ) : null;
+
   return (
     <div className={`tj-root ${theme === "light" ? "tj-light" : ""}`}>
       <style>{FONTS_CSS}</style>
       <PageBackdrop light={theme === "light"} />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto", padding: "0 28px 48px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto", padding: "0 16px 48px" }}>
         {/* Header + tab menu + End Balance: menempel di atas saat halaman di-scroll */}
         {/* Header menempel: logo + tagline, lalu End Balance + tombol aksi — ukurannya tetap, tidak berubah saat di-scroll */}
         <div ref={hdrRef} className={`tj-hdr ${hdrPinned ? "tj-pinned" : ""}`}>
@@ -884,7 +980,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
             {!saving && saveError && (
               <button
                 onClick={() => { setSaving(true); writeNow(); }}
-                style={{ fontSize: 11, color: "var(--red)", background: "none", border: "1px solid var(--red)", borderRadius: 6, padding: "2px 7px", cursor: "pointer" }}
+                style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", background: "none", border: "1px solid var(--red)", borderRadius: BTN_RADIUS, padding: "2px 7px", cursor: "pointer" }}
                 title="Perubahan terakhir belum tersimpan ke server. Ketuk untuk mencoba lagi."
               >
                 Gagal menyimpan · Coba lagi
@@ -921,13 +1017,13 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                             <button
                               disabled={loggingOut}
                               onClick={() => handleLogout(logoutUnsaved)}
-                              style={{ flex: 1, background: "var(--red)", color: "#fff", border: "none", borderRadius: 6, padding: "7px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", opacity: loggingOut ? 0.6 : 1 }}
+                              style={{ flex: 1, background: "var(--red)", color: "#fff", border: "none", borderRadius: BTN_RADIUS, padding: "7px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: loggingOut ? 0.6 : 1 }}
                             >
                               {loggingOut ? "Menyimpan…" : logoutUnsaved ? "Tetap keluar" : "Ya, Keluar"}
                             </button>
                             <button
                               onClick={() => { setConfirmLogout(false); setLogoutUnsaved(false); }}
-                              style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 6, padding: "7px 0", fontSize: 11, cursor: "pointer" }}
+                              style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "7px 0", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                             >
                               Batal
                             </button>
@@ -944,6 +1040,15 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
               </div>
             )}
             </div>
+            <button
+              type="button"
+              className="tj-theme-toggle"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Tema Terang" : "Tema Gelap"}
+              aria-label={theme === "dark" ? "Ganti ke tema terang" : "Ganti ke tema gelap"}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
           </div>
         </div>
 
@@ -951,7 +1056,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
         <div aria-hidden="true" style={{ height: hdrH, marginTop: "calc(-1 * env(safe-area-inset-top, 0px))" }} />
 
         {/* End Balance: di luar header, ikut tergulir; tampil di setiap menu (Jurnal / Simulasi / Chart).
-            Ikon tema terang/gelap ada di kanan baris ini. */}
+            Ikon tema terang/gelap kini ada di header, di bawah titik tiga. */}
         <div className="tj-bal">
           <div className="tj-balcard">
             {m && (
@@ -960,20 +1065,11 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 <span className="tj-mono tj-bal-value">{fmtMoney(endBalance)}</span>
               </>
             )}
-            <button
-              type="button"
-              className="tj-bal-theme"
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Tema Terang" : "Tema Gelap"}
-              aria-label={theme === "dark" ? "Ganti ke tema terang" : "Ganti ke tema gelap"}
-            >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
           </div>
         </div>
 
         <div ref={slideRef} onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} style={{ paddingTop: 4 }}>
-        {activeView === "simulasi" && <TargetSimulator theme={theme} />}
+        {activeView === "simulasi" && <TargetSimulator theme={theme} journalDays={journalDayResults} />}
 
         {activeView === "ai-news" && <AINews theme={theme} />}
 
@@ -987,36 +1083,43 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
         <>
         {/* Risk Guard: pemantauan P/L harian yang sudah tercatat, memakai batas existing 4%. */}
         <RiskGuardCard riskGuard={riskGuard} />
-        {/* Cross-month comparison */}
+        {/* Cross-month comparison: kartu berjudul standar (sama dengan Statistik) */}
         {(
-          <div style={{ borderRadius: 10, overflow: "hidden", marginBottom: 16, background: "var(--surface-soft)" }}>
-            <button
-              onClick={() => setShowCompare((v) => !v)}
-              style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "transparent", border: "none", borderBottom: showCompare ? "1px solid var(--border)" : "none", color: "var(--gold)", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <TrendingUp size={13} color="var(--gold)" /> Perbandingan Antar Bulan
-              </span>
-              {showCompare ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
+          <CardShell ariaLabel="Perbandingan Antar Bulan" marginBottom={14}>
+            <CardHeader
+              divider={showCompare}
+              icon={<TrendingUp size="52%" strokeWidth={2.2} style={{ display: "block" }} />}
+              title="Perbandingan Antar Bulan"
+              subtitle="Lihat performa trading kamu dari bulan ke bulan."
+              badge={
+                <HeaderBadge
+                  onClick={() => setShowCompare((v) => !v)}
+                  active={showCompare}
+                  ariaExpanded={showCompare}
+                  ariaLabel="Tampilkan atau sembunyikan grafik perbandingan"
+                  icon={<TrendingUp strokeWidth={2.4} style={{ width: s(18, 10), height: s(18, 10), display: "block" }} />}
+                  label="GRAFIK"
+                />
+              }
+            />
             {showCompare && compareData.length === 0 && (
               <div style={{ padding: "22px 14px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
                 Belum ada data bulan. Perbandingan akan muncul setelah bulan pertama dibuat.
               </div>
             )}
             {showCompare && compareData.length > 0 && (
-              <div style={{ padding: "12px 10px 4px" }}>
+              <div>
                 <div className="tj-title" style={{ margin: "0 8px 12px", color: "var(--muted)", borderBottom: "none", paddingBottom: 0 }}>
                   Growth % per Bulan
                 </div>
                 <ResponsiveContainer width="100%" height={170}>
                   <BarChart data={compareData} margin={{ top: 6, right: 14, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                    <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => `${v.toFixed(0)}%`} />
-                    <ReferenceLine y={0} stroke={chartColors.refLine} strokeDasharray="3 3" strokeOpacity={0.6} />
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} horizontal={gridWithoutBottom} />
+                    <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} />
+                    <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} width={44} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                    <ReferenceLine y={0} stroke={chartColors.tick} strokeOpacity={0.45} />
                     <Tooltip
-                      contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 13 }}
+                      contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: BOX_RADIUS, fontSize: 13 }}
                       labelStyle={{ color: chartColors.tooltipLabel, fontSize: 11 }}
                       formatter={(v) => [`${Number(v).toFixed(2)}%`, "Growth"]}
                       labelFormatter={(label, payload) => payload?.[0]?.payload?.fullLabel || label}
@@ -1062,331 +1165,176 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 </div>
               </div>
             )}
-          </div>
+          </CardShell>
         )}
 
-        {/* Month tabs */}
-        <div className="flex items-center gap-2 tj-scrollbar" style={{ overflowX: "auto", paddingBottom: 8, marginBottom: 6 }}>
-          {order.filter((key) => !months[key]?.archived).map((key) => (
-            <div key={key} style={{ position: "relative", display: "flex", alignItems: "stretch" }}>
-              <button
-                onClick={() => setActiveMonth(key)}
-                className="tj-mono"
-                style={{
-                  whiteSpace: "nowrap",
-                  padding: "7px 10px 7px 14px",
-                  borderRadius: "8px 0 0 8px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  lineHeight: 1.2,
-                  border: `1px solid ${activeMonth === key ? "var(--gold-dim)" : "var(--border)"}`,
-                  borderRight: "none",
-                  background: activeMonth === key ? "rgba(237,165,36,0.1)" : "var(--surface)",
-                  color: activeMonth === key ? "var(--gold)" : "var(--muted)",
-                  cursor: "pointer",
-                }}
-              >
-                {monthKeyToLabel(key)}
-              </button>
-              <button
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setMenuPos({ top: rect.bottom + 6, left: rect.left });
-                  setMenuOpenFor(menuOpenFor === key ? null : key);
-                  setConfirmDeleteFor(null);
-                }}
-                style={{
-                  padding: "7px 10px",
-                  borderRadius: "0 8px 8px 0",
-                  border: `1px solid ${activeMonth === key ? "var(--gold-dim)" : "var(--border)"}`,
-                  background: activeMonth === key ? "rgba(237,165,36,0.1)" : "var(--surface)",
-                  color: "var(--muted)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MoreVertical size={12} />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() => setNewMonthOpen((v) => !v)}
-            style={{
-              whiteSpace: "nowrap",
-              padding: "7px 14px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              border: "1px dashed var(--border)",
-              background: "transparent",
-              color: "var(--muted)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Plus size={14} /> Bulan Baru
-          </button>
-        </div>
+        {/* Kalender pilih tanggal: muncul saat bulan diklik (tidak lagi di dalam kartu Input Transaksi) */}
+      {calendarOpen && <CalendarPopover addNote={addNote} calendarCells={calendarCells} calendarFirstDay={calendarFirstDay} changeCalendarMonth={changeCalendarMonth} chooseCalendarDate={chooseCalendarDate} selectedDate={selectedDate} setCalendarOpen={setCalendarOpen} todayKey={todayKey} transactionDateKeys={transactionDateKeys} />}
 
-        {menuOpenFor && menuPos && (
-          <>
-            <div
-              onClick={() => { setMenuOpenFor(null); setConfirmDeleteFor(null); }}
-              style={{ position: "fixed", inset: 0, zIndex: 40 }}
-            />
-            <div
-              style={{
-                position: "fixed",
-                top: menuPos.top,
-                left: menuPos.left,
-                zIndex: 41,
-                background: "var(--surface-raised)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                overflow: "hidden",
-                minWidth: 180,
-                boxShadow: "0 10px 24px rgba(0,0,0,0.5)",
-              }}
-            >
-              {confirmDeleteFor === menuOpenFor ? (
-                <div style={{ padding: 10 }}>
-                  <div style={{ fontSize: 11, color: "var(--text)", marginBottom: 8 }}>Hapus permanen? Data tidak bisa dikembalikan.</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => deleteMonthPermanent(menuOpenFor)} style={{ flex: 1, background: "var(--red)", color: "#fff", border: "none", borderRadius: 6, padding: "6px 0", fontSize: 11, cursor: "pointer" }}>Ya, Hapus</button>
-                    <button onClick={() => setConfirmDeleteFor(null)} style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 0", fontSize: 11, cursor: "pointer" }}>Batal</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={() => archiveMonth(menuOpenFor)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "none", border: "none", color: "var(--text)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
-                  >
-                    <Archive size={13} /> Arsipkan
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteFor(menuOpenFor)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "none", border: "none", color: "var(--red)", fontSize: 13, cursor: "pointer", textAlign: "left", borderTop: "1px solid var(--border)" }}
-                  >
-                    <Trash2 size={13} /> Hapus Permanen
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
+        {menuOpenFor && menuPos && <MonthActionMenu archiveMonth={archiveMonth} confirmDeleteFor={confirmDeleteFor} deleteMonthPermanent={deleteMonthPermanent} menuOpenFor={menuOpenFor} menuPos={menuPos} setConfirmDeleteFor={setConfirmDeleteFor} setMenuOpenFor={setMenuOpenFor} setMonthDdOpen={setMonthDdOpen} />}
 
-        {order.some((key) => months[key]?.archived) && (
-          <button
-            onClick={() => setShowArchive((v) => !v)}
-            style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, marginBottom: 14, padding: 0 }}
-          >
-            <Archive size={11} /> Arsip ({order.filter((k) => months[k]?.archived).length}) {showArchive ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-          </button>
-        )}
-
-        {showArchive && (
-          <div style={{ background: "var(--surface-soft)", borderRadius: 10, marginBottom: 16, overflow: "hidden" }}>
-            {Object.entries(
-              order
-                .filter((key) => months[key]?.archived)
-                .reduce((groups, key) => {
-                  const year = key.split("-")[0];
-                  (groups[year] = groups[year] || []).push(key);
-                  return groups;
-                }, {})
-            )
-              .sort((a, b) => Number(b[0]) - Number(a[0]))
-              .map(([year, keys], gi, garr) => (
-                <div key={year} style={{ borderBottom: gi < garr.length - 1 ? "none" : "none" }}>
-                  <div style={{ padding: "8px 14px", background: "transparent", fontSize: 11, color: "var(--gold)", letterSpacing: "0.05em", fontWeight: 600 }}>
-                    {year} <span style={{ color: "var(--muted)", fontWeight: 400 }}>({keys.length} bulan)</span>
-                  </div>
-                  {keys
-                    .sort((a, b) => a.localeCompare(b))
-                    .map((key, i, arr) => (
-                      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderTop: "none" }}>
-                        <span className="tj-mono" style={{ fontSize: 13, color: "var(--muted)" }}>{monthKeyToLabel(key)}</span>
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => restoreMonth(key)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "var(--gold)", fontSize: 11, cursor: "pointer" }}>
-                            <ArchiveRestore size={12} /> Aktifkan
-                          </button>
-                          <button onClick={() => setConfirmDeleteFor(confirmDeleteFor === key ? null : key)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer" }}>
-                            <Trash2 size={12} /> Hapus
-                          </button>
-                        </div>
-                        {confirmDeleteFor === key && (
-                          <div style={{ position: "absolute", marginTop: 30, background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 8, padding: 10, zIndex: 10 }}>
-                            <div style={{ fontSize: 11, marginBottom: 8 }}>Hapus permanen?</div>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => deleteMonthPermanent(key)} style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>Ya</button>
-                              <button onClick={() => setConfirmDeleteFor(null)} style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 6, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>Batal</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              ))}
-          </div>
-        )}
-
-        {newMonthOpen && (
-          <div style={{ background: "var(--surface-soft)", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: "var(--muted)" }}>Start Balance ($)</span>
-            <input
-              type="number"
-              className="tj-input tj-mono"
-              style={{ width: 100 }}
-              value={newMonthBalance}
-              onChange={(e) => setNewMonthBalance(e.target.value)}
-            />
-            <button
-              onClick={createMonth}
-              style={{ background: "var(--gold-grad)", color: "#0A1628", fontSize: 13, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer" }}
-            >
-              Buat Bulan Ini
-            </button>
-          </div>
-        )}
+        {/* Dropdown bulan aktif (panel melayang agar tidak terpotong kartu) */}
+        {monthDdOpen && monthDdPos && <MonthDropdown activeMonth={activeMonth} archiveItems={archiveItems} archivedKeys={archivedKeys} menuOpenFor={menuOpenFor} monthDdPos={monthDdPos} months={months} order={order} setActiveMonth={setActiveMonth} setCalendarMonth={setCalendarMonth} setCalendarOpen={setCalendarOpen} setConfirmDeleteFor={setConfirmDeleteFor} setMenuOpenFor={setMenuOpenFor} setMenuPos={setMenuPos} setMonthDdOpen={setMonthDdOpen} />}
 
         {!m && (
-          <div style={{ textAlign: "center", padding: "50px 20px", color: "var(--muted)", fontSize: 13, border: "1px dashed var(--border)", borderRadius: 12 }}>
+          <div style={{ textAlign: "center", padding: "50px 20px", color: "var(--muted)", fontSize: 13, border: "1px dashed var(--border)", borderRadius: BOX_RADIUS }}>
             Belum ada jurnal bulan. Klik "+ Bulan Baru" untuk mulai.
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setNewMonthOpen((v) => !v)}
+                style={{ whiteSpace: "nowrap", padding: "7px 14px", borderRadius: BTN_RADIUS, fontSize: 13, fontWeight: 700, border: "1px dashed var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <Plus size={14} /> Bulan Baru
+              </button>
+            </div>
+            {newMonthForm && <div style={{ marginTop: 14, textAlign: "left" }}>{newMonthForm}</div>}
+            {archivedKeys.length > 0 && (
+              <div style={{ marginTop: 14, textAlign: "left", border: "1px solid var(--border)", borderRadius: BOX_RADIUS }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 12px 2px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>
+                  <Archive size={11} /> Arsip ({archivedKeys.length})
+                </div>
+                {archiveItems}
+              </div>
+            )}
           </div>
         )}
 
         {m && (
           <>
             {/* Input entry (1 baris per tanggal) + tabel entries — di atas statistik */}
-            <div style={{ borderRadius: 10, overflow: "hidden", background: "var(--surface-soft)", marginBottom: 20 }}>
-              <div style={{ padding: 12, background: "transparent", position: "relative" }}>
-                {/* Judul + menu titik tiga (gaya sama dengan kartu Statistik): Export Excel, Backup Data (.json), Import Backup (.json) */}
-                <div style={{ position: "relative" }}>
-                  <div className="tj-title">
-                    Input Transaksi
+            <CardShell ariaLabel="Input Transaksi">
+              <CardHeader
+                icon={<List size="52%" strokeWidth={2.2} style={{ display: "block" }} />}
+                title="Input Transaksi"
+                subtitle="Tambah dan kelola data transaksi trading kamu."
+                badge={
+                  <div style={{ position: "relative", flex: "0 0 auto", marginLeft: "auto" }}>
+                    {/* Menu titik tiga: Export Excel, Backup Data (.json), Import Backup (.json) */}
+                    <button
+                      onClick={() => { setTxMenuOpen((v) => !v); setImportError(""); }}
+                      title="Export & Backup"
+                      aria-label="Export dan Backup"
+                      aria-haspopup="menu"
+                      aria-expanded={txMenuOpen}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 22, background: "none", border: "none", borderRadius: BOX_RADIUS, color: "var(--muted)", opacity: 0.7, cursor: "pointer", padding: 0 }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: "none" }}
+                      onChange={handleImportFileChange}
+                    />
+                    {txMenuOpen && (
+                      <>
+                        <div onClick={() => setTxMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                        <div role="menu" style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 30, minWidth: 190, background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: BOX_RADIUS, padding: 4, boxShadow: "0 10px 24px rgba(0,0,0,0.35)" }}>
+                          {[
+                            [Download, "Export Excel", () => { setTxMenuOpen(false); openExport(); }],
+                            [Download, "Backup Data (.json)", () => { setTxMenuOpen(false); handleBackupExport(); }],
+                            [Upload, "Import Backup (.json)", () => importFileRef.current?.click()],
+                          ].map(([Icon, label, onClick]) => (
+                            <button
+                              key={label}
+                              role="menuitem"
+                              onClick={onClick}
+                              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "none", border: "none", borderRadius: `calc(${BOX_RADIUS} - 4px)`, color: "var(--text)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
+                            >
+                              <Icon size={13} /> {label}
+                            </button>
+                          ))}
+                          {importError && (
+                            <div style={{ fontSize: 11, color: "var(--red)", padding: "2px 10px 6px" }}>{importError}</div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <button
-                    onClick={() => { setTxMenuOpen((v) => !v); setImportError(""); }}
-                    title="Export & Backup"
-                    aria-label="Export dan Backup"
-                    aria-haspopup="menu"
-                    aria-expanded={txMenuOpen}
-                    style={{ position: "absolute", right: 0, top: "calc(50% - 4px)", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 22, background: "none", border: "none", borderRadius: 6, color: "var(--muted)", opacity: 0.7, cursor: "pointer", padding: 0 }}
-                  >
-                    <MoreHorizontal size={16} />
-                  </button>
-                  <input
-                    ref={importFileRef}
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: "none" }}
-                    onChange={handleImportFileChange}
-                  />
-                  {txMenuOpen && (
-                    <>
-                      <div onClick={() => setTxMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                      <div role="menu" style={{ position: "absolute", right: 0, top: "100%", zIndex: 30, minWidth: 190, background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 9, padding: 4, boxShadow: "0 10px 24px rgba(0,0,0,0.35)" }}>
-                        {[
-                          [Download, "Export Excel", () => { setTxMenuOpen(false); openExport(); }],
-                          [Download, "Backup Data (.json)", () => { setTxMenuOpen(false); handleBackupExport(); }],
-                          [Upload, "Import Backup (.json)", () => importFileRef.current?.click()],
-                        ].map(([Icon, label, onClick]) => (
-                          <button
-                            key={label}
-                            role="menuitem"
-                            onClick={onClick}
-                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "none", border: "none", borderRadius: 6, color: "var(--text)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
-                          >
-                            <Icon size={13} /> {label}
-                          </button>
-                        ))}
-                        {importError && (
-                          <div style={{ fontSize: 11, color: "var(--red)", padding: "2px 10px 6px" }}>{importError}</div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div style={{ position: "relative", marginBottom: 12 }}>
-                  <button
-                    type="button"
-                    className="tj-input tj-mono"
-                    onClick={() => { setCalendarMonth(activeMonth || selectedDate.slice(0, 7)); setCalendarOpen((open) => !open); }}
-                    aria-label="Pilih tanggal transaksi"
-                    aria-expanded={calendarOpen}
-                    style={{ width: "100%", minHeight: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", cursor: "pointer", border: calendarOpen ? "1px solid var(--gold)" : undefined, color: selectedDateIsWeekend ? "#EF5B50" : "var(--text)", position: "relative" }}
-                  >
-                    <span>{selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "Pilih tanggal"}</span>
-                    <CalendarDays size={17} style={{ flexShrink: 0, color: "var(--gold)", position: "absolute", right: 12 }} />
-                  </button>
-                  {calendarOpen && <>
-                    <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 39 }} />
-                    <div role="dialog" aria-label="Kalender pilih tanggal" style={{ position: "fixed", top: "50%", left: "50%", right: "auto", transform: "translate(-50%, -50%)", width: "min(360px, calc(100vw - 24px))", maxWidth: "calc(100vw - 24px)", boxSizing: "border-box", zIndex: 40, padding: 12, borderRadius: 16, background: "var(--surface-raised, var(--surface))", border: "1px solid var(--border)", boxShadow: "0 14px 35px rgba(0,0,0,.22)" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
-                        <button type="button" onClick={() => changeCalendarMonth(-1)} aria-label="Bulan sebelumnya" style={{ width: 32, height: 32, display: "grid", placeItems: "center", border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface-soft)", color: "var(--text)", cursor: "pointer" }}><ChevronLeft size={17} /></button>
-                        <strong style={{ fontSize: 14, color: "var(--text)" }}>{calendarFirstDay.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</strong>
-                        <button type="button" onClick={() => changeCalendarMonth(1)} aria-label="Bulan berikutnya" style={{ width: 32, height: 32, display: "grid", placeItems: "center", border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface-soft)", color: "var(--text)", cursor: "pointer" }}><ChevronRight size={17} /></button>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginBottom: 5 }}>
-                        {["SEN", "SEL", "RAB", "KAM", "JUM", "SAB", "MIN"].map((day, index) => <div key={day} style={{ textAlign: "center", padding: "5px 0", color: index >= 5 ? "#A33A3A" : "var(--muted)", fontSize: 10, fontWeight: 700 }}>{day}</div>)}
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 3 }}>
-                        {calendarCells.map((key, i) => {
-                          if (!key) return <div key={`empty-${i}`} style={{ minHeight: 35 }} />;
-                          const isSelected = key === selectedDate;
-                          const hasEntry = transactionDateKeys.has(key);
-                          const isToday = key === todayKey;
-                          const dayNum = Number(key.slice(-2));
-                          const weekday = new Date(`${key}T12:00:00`).getDay();
-                          const isWeekend = weekday === 0 || weekday === 6;
-                          return <button key={key} type="button" onClick={() => chooseCalendarDate(key)} aria-label={`${dayNum} ${calendarFirstDay.toLocaleDateString("id-ID", { month: "long" })}`} aria-pressed={isSelected} style={{ minWidth: 0, minHeight: 42, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, border: isSelected ? "1px solid var(--gold)" : isToday ? "1px solid var(--gold-dim)" : "1px solid var(--border)", borderRadius: 9, background: isSelected ? "var(--gold-grad)" : "var(--surface)", color: isSelected ? "#0A1628" : isWeekend ? "#A33A3A" : "var(--text)", fontSize: 12, fontWeight: isSelected ? 800 : 600, cursor: "pointer", padding: 0 }}>
-                            {dayNum}<span style={{ width: 4, height: 4, borderRadius: "50%", background: hasEntry ? (isSelected ? "#686868" : "#8B8B85") : "transparent" }} />
-                          </button>;
-                        })}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", color: "var(--muted)", fontSize: 10 }}><span><span style={{ color: "#8B8B85" }}>●</span> sudah ada transaksi</span><span>▢ terpilih = emas</span></div>
-                    </div>
-                  </>}
-                </div>
+                }
+              />
 
-                <div className="flex items-center gap-8" style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {/* Bulan aktif (dropdown, kiri) + Bulan Baru (kanan) */}
+              <div style={{ display: "flex", alignItems: "stretch", gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: "1 1 0", minWidth: 0, minHeight: 42, display: "flex", alignItems: "stretch", borderRadius: s(14, 8), background: INNER_BG, border: INNER_LINE, overflow: "hidden" }}>
+                  {/* Kiri: tampilkan kalender bulan aktif */}
                   <button
-                    onClick={addEntry}
-                    title={selectedDateHasEntry ? "Tanggal ini sudah punya transaksi — transaksi baru dibuat di tanggal berikutnya" : "Tambah transaksi untuk tanggal ini"}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      background: "var(--gold-grad)",
-                      border: "1px solid var(--gold)",
-                      color: "#0A1628",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      padding: "6px 12px",
-                      borderRadius: 7,
-                      cursor: "pointer",
-                    }}
+                    onClick={() => { setCalendarMonth(activeMonth); setCalendarOpen((v) => !v); setMonthDdOpen(false); }}
+                    aria-haspopup="dialog"
+                    aria-expanded={calendarOpen}
+                    aria-label="Buka kalender bulan aktif"
+                    className="tj-mono"
+                    style={{ flex: "1 1 0", minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "transparent", border: "none", color: "var(--text)", fontSize: s(13, 10), fontWeight: 800, cursor: "pointer" }}
                   >
-                    <Plus size={12} /> Tambah Transaksi
+                    <CalendarDays size={16} style={{ flex: "0 0 auto", color: "var(--muted)" }} />
+                    <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{monthKeyToLabel(activeMonth)}</span>
                   </button>
-                  {addNote && (
-                    <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center" }}>{addNote}</span>
-                  )}
+                  {/* Garis pemisah vertikal (warna seperti di kartu Statistik), diberi jarak dari garis tepi atas dan bawah */}
+                  <span aria-hidden="true" style={{ flex: "0 0 1px", width: 1, alignSelf: "stretch", margin: "9px 0", background: mix(BLUE, 45) }} />
+                  {/* Kanan: daftar bulan dan arsip */}
+                  <button
+                    onClick={(e) => {
+                      const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                      setMonthDdPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+                      setMonthDdOpen((v) => !v);
+                      setCalendarOpen(false);
+                    }}
+                    aria-haspopup="listbox"
+                    aria-expanded={monthDdOpen}
+                    aria-label="Daftar bulan dan arsip"
+                    style={{ flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 14px", background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}
+                  >
+                    <ChevronDown size={16} style={{ transform: monthDdOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                  </button>
                 </div>
+                <button
+                  onClick={() => setNewMonthOpen((v) => !v)}
+                  style={{ whiteSpace: "nowrap", padding: "7px 14px", borderRadius: BTN_RADIUS, fontSize: s(13, 10), fontWeight: 700, border: "1px dashed var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Plus size={14} /> Bulan Baru
+                </button>
+              </div>
+              {newMonthForm}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button
+                  onClick={openSetupGate}
+                  title={selectedDateHasEntry ? "Tanggal ini sudah punya transaksi — transaksi baru dibuat di tanggal berikutnya" : "Tambah transaksi untuk tanggal ini"}
+                  style={{
+                    width: "100%",
+                    minHeight: 42,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    background: mix("var(--gold)", 14),
+                    border: "1.5px solid var(--gold)",
+                    color: "var(--gold)",
+                    fontSize: s(13, 10),
+                    fontWeight: 700,
+                    padding: "6px 12px",
+                    borderRadius: s(14, 8),
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={16} strokeWidth={2.4} /> Tambah Transaksi
+                </button>
+                <span style={{ fontSize: s(11, 9), color: selectedDateIsWeekend ? "var(--red)" : "var(--muted)", textAlign: "center" }}>
+                  {selectedDate ? `Tanggal dipilih: ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })} (ubah lewat bulan aktif di atas)` : "Pilih bulan aktif di atas untuk memilih tanggal"}
+                </span>
+                {addNote && (
+                  <span style={{ fontSize: s(11, 9), color: "var(--muted)", textAlign: "center" }}>{addNote}</span>
+                )}
               </div>
 
               {/* Entries table */}
               <div className="tj-scrollbar" style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
+                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr style={{ background: "transparent" }}>
                       {["No", "Tanggal", "Start", "Target 3%", "Loss -4%", "Profit ($)", "Loss ($)", "Komisi ($)", "WD ($)", "End Balance", ""].map((h) => (
-                        <th key={h} style={{ padding: "8px 10px", fontSize: 11, color: "var(--muted)", textAlign: "center", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                        <th key={h} style={{ padding: `${s(8, 4)} ${s(6, 3)}`, fontSize: s(12, 9.5), color: "color-mix(in srgb, #2A7BFF 72%, var(--text))", textAlign: "center", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", background: "transparent", border: "none" }}>
                           {h}
                         </th>
                       ))}
@@ -1394,23 +1342,31 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                   </thead>
                   <tbody>
                     {rows.map((r, i) => {
-                      const dayKey = fmtDayKey(r.date);
-                      const prevDayKey = i > 0 ? fmtDayKey(rows[i - 1].date) : null;
-                      const isFirstOfDateGroup = dayKey !== prevDayKey;
-                      let dateSpan = 1;
-                      if (isFirstOfDateGroup) {
-                        for (let j = i + 1; j < rows.length && fmtDayKey(rows[j].date) === dayKey; j++) dateSpan++;
-                      }
+                      // Baris biasa (bukan kartu): tanpa latar, sudut bulat, maupun garis pemisah.
+                      const cell = (pos, extra) => ({
+                        background: "transparent",
+                        ...extra,
+                      });
+                      const isWeekendRow = [0, 6].includes(new Date(r.date).getDay());
                       return (
                       <tr key={r.id}>
-                        <td className="tj-mono" style={{ padding: "8px 10px", fontSize: 13, color: "var(--muted)", textAlign: "center" }}>{i + 1}</td>
-                        {isFirstOfDateGroup && (
-                          <td className="tj-mono" rowSpan={dateSpan} style={{ padding: "8px 10px", fontSize: 13, whiteSpace: "nowrap", textAlign: "center", verticalAlign: "middle", borderLeft: dateSpan > 1 ? "2px solid var(--gold-dim)" : "none", color: [0, 6].includes(new Date(r.date).getDay()) ? "var(--red)" : undefined }}>{fmtDate(r.date)}</td>
-                        )}
-                        <td className="tj-mono" style={{ padding: "8px 10px", fontSize: 13, color: "var(--muted)", textAlign: "center" }}>{fmtMoney(r.start)}</td>
-                        <td className="tj-mono" style={{ padding: "8px 10px", fontSize: 13, color: "var(--green)", opacity: 0.85, textAlign: "center" }}>{fmtMoney(r.target)}</td>
-                        <td className="tj-mono" style={{ padding: "8px 10px", fontSize: 13, color: "var(--red)", opacity: 0.85, textAlign: "center", whiteSpace: "nowrap" }}>{fmtMoney(r.lossLimit)}</td>
-                        <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                        <td className="tj-mono" style={cell("first", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--muted)", textAlign: "center" })}>{i + 1}</td>
+                        <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), whiteSpace: "nowrap", textAlign: "center", color: isWeekendRow ? "var(--red)" : undefined })}>
+                          {fmtDate(r.date)}
+                          <select
+                            aria-label="Tag setup"
+                            value={r.setup || ""}
+                            onChange={(e) => updateEntry(r.id, "setup", e.target.value)}
+                            style={{ display: "block", margin: "2px auto 0", background: "transparent", border: "none", padding: 0, fontSize: s(10, 9), fontWeight: 700, textAlign: "center", textAlignLast: "center", appearance: "none", WebkitAppearance: "none", cursor: "pointer", maxWidth: "100%", color: r.setup === NO_SETUP_ID ? "var(--red)" : r.setup ? "var(--green)" : "var(--muted)" }}
+                          >
+                            <option value="">Tag?</option>
+                            {SETUP_TAGS.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}
+                          </select>
+                        </td>
+                        <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--muted)", textAlign: "center" })}>{fmtMoney(r.start)}</td>
+                        <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--green)", opacity: 0.85, textAlign: "center" })}>{fmtMoney(r.target)}</td>
+                        <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), color: "var(--red)", opacity: 0.85, textAlign: "center", whiteSpace: "nowrap" })}>{fmtMoney(r.lossLimit)}</td>
+                        <td style={cell("mid", { padding: `${s(8, 4)} ${s(3, 2)}`, textAlign: "center" })}>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -1421,7 +1377,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                             style={{ color: "var(--green)", width: 72, textAlign: "center" }}
                           />
                         </td>
-                        <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                        <td style={cell("mid", { padding: `${s(8, 4)} ${s(3, 2)}`, textAlign: "center" })}>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -1432,7 +1388,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                             style={{ color: "var(--red)", width: 72, textAlign: "center" }}
                           />
                         </td>
-                        <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                        <td style={cell("mid", { padding: `${s(8, 4)} ${s(3, 2)}`, textAlign: "center" })}>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -1443,7 +1399,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                             style={{ color: "var(--red)", width: 72, textAlign: "center" }}
                           />
                         </td>
-                        <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                        <td style={cell("mid", { padding: `${s(8, 4)} ${s(3, 2)}`, textAlign: "center" })}>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -1454,9 +1410,9 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                             style={{ width: 72, textAlign: "center" }}
                           />
                         </td>
-                        <td className="tj-mono" style={{ padding: "8px 10px", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{fmtMoney(r.end)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                          <button onClick={() => deleteEntry(r.id)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "inline-flex" }}>
+                        <td className="tj-mono" style={cell("mid", { padding: `${s(10, 5)} ${s(6, 3)}`, fontSize: s(13, 10), fontWeight: 700, textAlign: "center" })}>{fmtMoney(r.end)}</td>
+                        <td style={cell("last", { padding: `${s(10, 5)} ${s(6, 3)}`, textAlign: "center" })}>
+                          <button onClick={() => setPendingDeleteEntry({ id: r.id, date: r.date })} aria-label="Hapus transaksi" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "inline-flex" }}>
                             <Trash2 size={13} />
                           </button>
                         </td>
@@ -1465,7 +1421,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                     })}
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={12} style={{ padding: "24px 10px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+                        <td colSpan={12} style={{ padding: "24px 10px", textAlign: "center", fontSize: s(13, 10), color: "var(--muted)" }}>
                           Belum ada entry. Tambahkan trade pertama.
                         </td>
                       </tr>
@@ -1473,11 +1429,15 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                   </tbody>
                 </table>
               </div>
-            </div>
+
+              {/* Statistik Setup: kartu dalam di dalam Input Transaksi (seperti Capital Lot Reference di kartu Rekomendasi Lot) */}
+              <SetupStatsSection months={months} open={showSetupStats} onToggle={() => setShowSetupStats((v) => !v)} />
+            </CardShell>
 
             {/* Statistik: kartu bergaya baru (cincin winrate + 4 kartu angka + persentase periode). Hanya tampilan; angka dari stats & growthPct di atas */}
             <StatsCard
               stats={stats}
+              periodRows={{ Harian: dailyRowsForStats, Mingguan: weeklyRowsForStats, Bulanan: rows, Tahunan: yearMonthsForStats }}
               growth={[
                 ["Harian", dailyGrowthPct],
                 ["Mingguan", weeklyGrowthPct],
@@ -1488,40 +1448,51 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
 
             {/* Balance growth chart */}
             {rows.length > 0 && (
-              <div style={{ borderRadius: 12, background: "var(--surface-soft)", padding: "10px 14px 8px", marginBottom: 20 }}>
-                <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 22, paddingBottom: 8, marginBottom: 12, borderBottom: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--gold)" }}>Pertumbuhan Saldo</span>
-                  <button
-                    onClick={() => setBalanceMenuOpen((v) => !v)}
-                    title="Ubah tampilan grafik"
-                    aria-label="Ubah tampilan grafik"
-                    aria-haspopup="menu"
-                    aria-expanded={balanceMenuOpen}
-                    style={{ position: "absolute", right: 0, top: "calc(50% - 4px)", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 22, background: "none", border: "none", borderRadius: 6, color: "var(--muted)", opacity: 0.7, cursor: "pointer", padding: 0 }}
-                  >
-                    <MoreHorizontal size={16} />
-                  </button>
-                  {balanceMenuOpen && (
-                    <>
-                      <div onClick={() => setBalanceMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                      <div role="menu" style={{ position: "absolute", right: 0, top: "100%", zIndex: 30, minWidth: 170, background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 9, padding: 4, boxShadow: "0 10px 24px rgba(0,0,0,0.35)" }}>
-                        <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "6px 10px 4px" }}>Tampilan grafik</div>
-                        {[["line", "Garis"], ["bar", "Batang"], ["area", "Area"]].map(([key, label]) => (
-                          <button
-                            key={key}
-                            role="menuitemradio"
-                            aria-checked={balanceChartType === key}
-                            onClick={() => { setBalanceChartType(key); setBalanceMenuOpen(false); }}
-                            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", background: balanceChartType === key ? "rgba(237,165,36,0.1)" : "none", border: "none", borderRadius: 6, color: balanceChartType === key ? "var(--gold)" : "var(--text)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
-                          >
-                            {label}
-                            {balanceChartType === key && <Check size={13} />}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+              <CardShell ariaLabel="Pertumbuhan Saldo">
+                <CardHeader
+                  icon={
+                    <svg width="52%" height="52%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }} aria-hidden="true" focusable="false">
+                      <path d="M4 20v-6M10 20v-9M16 20v-5" />
+                      <path d="m3 9 5-4 4 3 7-5" />
+                      <path d="M15 3h4v4" />
+                    </svg>
+                  }
+                  title="Pertumbuhan Saldo"
+                  subtitle="Perkembangan saldo akun dari waktu ke waktu."
+                  badge={
+                    <div style={{ position: "relative", flex: "0 0 auto", marginLeft: "auto" }}>
+                      {/* GRAFIK: membuka menu tampilan grafik (Garis / Batang / Area) */}
+                      <HeaderBadge
+                        onClick={() => setBalanceMenuOpen((v) => !v)}
+                        active={balanceMenuOpen}
+                        ariaExpanded={balanceMenuOpen}
+                        ariaLabel="Ubah tampilan grafik"
+                        icon={<TrendingUp strokeWidth={2.4} style={{ width: s(18, 10), height: s(18, 10), display: "block" }} />}
+                        label="GRAFIK"
+                      />
+                      {balanceMenuOpen && (
+                        <>
+                          <div onClick={() => setBalanceMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                          <div role="menu" style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 30, minWidth: 170, background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: BOX_RADIUS, padding: 4, boxShadow: "0 10px 24px rgba(0,0,0,0.35)" }}>
+                            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "6px 10px 4px" }}>Tampilan grafik</div>
+                            {[["line", "Garis"], ["bar", "Batang"], ["area", "Area"]].map(([key, label]) => (
+                              <button
+                                key={key}
+                                role="menuitemradio"
+                                aria-checked={balanceChartType === key}
+                                onClick={() => { setBalanceChartType(key); setBalanceMenuOpen(false); }}
+                                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", background: balanceChartType === key ? "rgba(237,165,36,0.1)" : "none", border: "none", borderRadius: `calc(${BOX_RADIUS} - 4px)`, color: balanceChartType === key ? "var(--gold)" : "var(--text)", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "left" }}
+                              >
+                                {label}
+                                {balanceChartType === key && <Check size={13} />}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  }
+                />
                 <ResponsiveContainer width="100%" height={190}>
                   {balanceChartType === "bar" ? (
                     <BarChart
@@ -1531,12 +1502,12 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                       ]}
                       margin={{ top: 6, right: 14, left: 0, bottom: 0 }}
                     >
-                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} horizontal={gridWithoutBottom} />
+                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} />
+                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
                       <ReferenceLine y={m.initialBalance} stroke={chartColors.refLine} strokeDasharray="3 3" strokeOpacity={0.5} />
                       <Tooltip
-                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 13 }}
+                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: BOX_RADIUS, fontSize: 13 }}
                         labelStyle={{ color: chartColors.tooltipLabel, fontSize: 11 }}
                         itemStyle={{ color: "#EDA524" }}
                         formatter={(v) => [`$${Number(v).toFixed(2)}`, "Balance"]}
@@ -1558,12 +1529,12 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                           <stop offset="95%" stopColor="#EDA524" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} horizontal={gridWithoutBottom} />
+                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} />
+                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
                       <ReferenceLine y={m.initialBalance} stroke={chartColors.refLine} strokeDasharray="3 3" strokeOpacity={0.5} />
                       <Tooltip
-                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 13 }}
+                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: BOX_RADIUS, fontSize: 13 }}
                         labelStyle={{ color: chartColors.tooltipLabel, fontSize: 11 }}
                         itemStyle={{ color: "#EDA524" }}
                         formatter={(v) => [`$${Number(v).toFixed(2)}`, "Balance"]}
@@ -1579,12 +1550,12 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                       ]}
                       margin={{ top: 6, right: 14, left: 0, bottom: 0 }}
                     >
-                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                      <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} horizontal={gridWithoutBottom} />
+                      <XAxis dataKey="label" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} />
+                      <YAxis tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={{ stroke: chartColors.tick, strokeOpacity: 0.45 }} tickLine={false} width={54} tickFormatter={(v) => `$${v.toFixed(0)}`} />
                       <ReferenceLine y={m.initialBalance} stroke={chartColors.refLine} strokeDasharray="3 3" strokeOpacity={0.5} />
                       <Tooltip
-                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 13 }}
+                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: BOX_RADIUS, fontSize: 13 }}
                         labelStyle={{ color: chartColors.tooltipLabel, fontSize: 11 }}
                         itemStyle={{ color: "#EDA524" }}
                         formatter={(v) => [`$${Number(v).toFixed(2)}`, "Balance"]}
@@ -1594,74 +1565,11 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                     </LineChart>
                   )}
                 </ResponsiveContainer>
-              </div>
+              </CardShell>
             )}
 
-            {/* Capital lot reference */}
-            <div style={{ marginTop: 16, borderRadius: 10, overflow: "hidden", background: "var(--surface-soft)" }}>
-              {/* Rekomendasi live berdasarkan saldo berjalan saat ini */}
-              {(() => {
-                const rec = computeLotRecommendation(endBalance);
-                return (
-                  <div style={{ padding: "12px 14px", background: "transparent" }}>
-                    <div className="tj-title">
-                      Rekomendasi Untuk Saldo Saat Ini · {fmtMoney(endBalance)}
-                    </div>
-                    <div style={{ display: "flex", gap: 0 }}>
-                      <div style={{ flex: 1, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>Lot / Layer</div>
-                        <div className="tj-mono" style={{ fontSize: 15, fontWeight: 600 }}>{rec.lot}</div>
-                      </div>
-                      <div style={{ flex: 1, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>Max Layer</div>
-                        <div className="tj-mono" style={{ fontSize: 15, fontWeight: 600 }}>{rec.layers}</div>
-                      </div>
-                      <div style={{ flex: 1, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>Budget Rugi/Hari</div>
-                        <div className="tj-mono" style={{ fontSize: 15, fontWeight: 600, color: "var(--red)" }}>{fmtMoney(-rec.riskBudget)}</div>
-                      </div>
-                    </div>
-                    {rec.underMinimum && (
-                      <div style={{ fontSize: 11, color: "var(--red)", textAlign: "center", marginTop: 8 }}>
-                        ⚠ Modal terlalu kecil untuk 1 layer penuh sesuai jatah rugi 4% — pakai 0.01 lot dengan ekstra hati-hati, atau pertimbangkan tunggu modal pulih dulu.
-                      </div>
-                    )}
-                    <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
-                      Asumsi: SL rata-rata ${SL_DISTANCE_USD}, jatah rugi {(RISK_PCT_PER_DAY * 100).toFixed(0)}%/hari, target maks {TARGET_MAX_LAYERS} layer, 0.01 lot ≈ $1 per $1 pergerakan harga. Sesuaikan lagi kalau beda dengan gaya trading/broker kamu.
-                    </div>
-                  </div>
-                );
-              })()}
-              <button
-                onClick={() => setShowCapitalRef((v) => !v)}
-                style={{ width: "100%", position: "relative", display: "flex", justifyContent: "center", alignItems: "center", padding: "10px 14px", background: "transparent", border: "none", color: "var(--gold)", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
-              >
-                <span>Capital Lot Reference</span>
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", display: "inline-flex" }}>
-                  {showCapitalRef ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </span>
-              </button>
-              {showCapitalRef && (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {["Capital ($)", "Lot Size", "Max Layers"].map((h) => (
-                        <th key={h} style={{ padding: "7px 12px", fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", textAlign: "center" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {CAPITAL_LOT_REF_TIERS.map((row) => (
-                      <tr key={row.capital} className="tj-mono" style={{ background: Math.abs(row.capital - endBalance) < 50 ? "rgba(237,165,36,0.18)" : "transparent" }}>
-                        <td style={{ padding: "7px 12px", fontSize: 13, borderTop: "none", textAlign: "center" }}>${row.capital}</td>
-                        <td style={{ padding: "7px 12px", fontSize: 13, borderTop: "none", textAlign: "center" }}>{row.lot}</td>
-                        <td style={{ padding: "7px 12px", fontSize: 13, borderTop: "none", textAlign: "center" }}>{row.layers}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            {/* Rekomendasi Lot: kartu berjudul standar; angka dari computeLotRecommendation berdasarkan saldo berjalan */}
+            <RecommendationCard rec={computeLotRecommendation(endBalance)} endBalance={endBalance} showRef={showCapitalRef} onToggleRef={() => setShowCapitalRef((v) => !v)} />
           </>
         )}
         </>
@@ -1699,6 +1607,124 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       </nav>
 
       {/* Modal konfirmasi Import Backup — muncul setelah file .json dipilih & valid */}
+      {setupGate && (
+        <div
+          onClick={() => setSetupGate(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: s(20, 12), padding: 22, maxWidth: 380, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <ShieldCheck size={16} color="var(--gold)" />
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Sebelum entry</h3>
+            </div>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>No Setup = No Entry. Pilih tag setup, lalu cek daftar di bawah.</p>
+
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Tag setup</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+              {SETUP_TAGS.map((t) => {
+                const on = setupGate.tag === t.id;
+                const isNone = t.id === NO_SETUP_ID;
+                const color = isNone ? "var(--red)" : "var(--green)";
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSetupGate({ ...setupGate, tag: t.id, warned: false, note: "" })}
+                    style={{ padding: "7px 12px", minHeight: 34, borderRadius: BTN_RADIUS, fontSize: 13, fontWeight: 700, cursor: "pointer", background: on ? mix(color, 16) : "transparent", border: `1.5px solid ${on ? color : "var(--border)"}`, color: on ? color : "var(--muted)" }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Checklist</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+              {SETUP_CHECKLIST.map((text, i) => (
+                <label key={text} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)", padding: "8px 10px", minHeight: 40, border: "1px solid var(--border)", borderRadius: BTN_RADIUS, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!setupGate.checks[i]}
+                    onChange={(e) => setSetupGate({ ...setupGate, checks: setupGate.checks.map((c, j) => (j === i ? e.target.checked : c)), warned: false, note: "" })}
+                    style={{ width: 18, height: 18, accentColor: "var(--gold)", flex: "0 0 auto" }}
+                  />
+                  <span>{text}</span>
+                </label>
+              ))}
+            </div>
+
+            {setupGate.note && (
+              <p style={{ fontSize: 12.5, color: "var(--red)", margin: "0 0 12px", lineHeight: 1.45 }}>{setupGate.note}</p>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={proceedSetupGate}
+                style={{ flex: 1, background: mix("var(--gold)", 14), color: "var(--gold)", border: "1.5px solid var(--gold)", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                {setupGate.warned ? "Tetap lanjut" : "Lanjut isi transaksi"}
+              </button>
+              <button
+                onClick={() => setSetupGate(null)}
+                style={{ flex: "0 0 auto", padding: "9px 16px", background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingDeleteEntry && (
+        <div
+          onClick={() => setPendingDeleteEntry(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border)",
+              borderRadius: s(20, 12),
+              padding: 22,
+              maxWidth: 340,
+              width: "100%",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Trash2 size={16} color="var(--red)" />
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Hapus transaksi?</h3>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 16px" }}>
+              Transaksi tanggal <strong style={{ color: "var(--text)" }}>{fmtDate(pendingDeleteEntry.date)}</strong> akan dihapus dan tidak bisa dikembalikan.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { deleteEntry(pendingDeleteEntry.id); setPendingDeleteEntry(null); }}
+                style={{ flex: 1, background: "var(--red)", color: "#fff", border: "none", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                Ya, Hapus
+              </button>
+              <button
+                onClick={() => setPendingDeleteEntry(null)}
+                style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {pendingImport && (
         <div
           style={{
@@ -1716,7 +1742,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
             style={{
               background: "var(--surface-raised)",
               border: "1px solid var(--border)",
-              borderRadius: 12,
+              borderRadius: s(20, 12),
               padding: 22,
               maxWidth: 380,
               width: "100%",
@@ -1731,14 +1757,14 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
               const sm = pendingImport.summary;
               const imp = pendingImport.imported;
               const nothingNew = sm.newEntries === 0 && sm.newMonths === 0;
-              const rowStyle = { display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "3px 0" };
+              const rowStyle = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" };
               return (
                 <>
-                  <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px", wordBreak: "break-all" }}>
+                  <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 10px", wordBreak: "break-all" }}>
                     {pendingImport.fileName}
                     {imp.exportedAt ? ` · dibuat ${new Date(imp.exportedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
                   </p>
-                  <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", marginBottom: 12 }}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: BOX_RADIUS, padding: "6px 12px", marginBottom: 12 }}>
                     <div style={rowStyle}><span style={{ color: "var(--muted)" }}>Bulan baru</span><strong style={{ color: "var(--text)" }}>{sm.newMonths}</strong></div>
                     <div style={rowStyle}><span style={{ color: "var(--muted)" }}>Bulan yang ditambah entri</span><strong style={{ color: "var(--text)" }}>{sm.mergedMonths}</strong></div>
                     <div style={rowStyle}><span style={{ color: "var(--muted)" }}>Entri baru ditambahkan</span><strong style={{ color: "var(--green)" }}>{sm.newEntries}</strong></div>
@@ -1762,13 +1788,13 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
               <button
                 onClick={confirmImport}
                 disabled={pendingImport.summary.newEntries === 0 && pendingImport.summary.newMonths === 0}
-                style={{ flex: 1, background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: 7, padding: "9px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: pendingImport.summary.newEntries === 0 && pendingImport.summary.newMonths === 0 ? 0.4 : 1 }}
+                style={{ flex: 1, background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: pendingImport.summary.newEntries === 0 && pendingImport.summary.newMonths === 0 ? 0.4 : 1 }}
               >
                 Ya, Gabungkan & Import
               </button>
               <button
                 onClick={() => setPendingImport(null)}
-                style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 7, padding: "9px 0", fontSize: 13, cursor: "pointer" }}
+                style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
               >
                 Batal
               </button>
@@ -1783,30 +1809,30 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
         const activeCount = order.length - archivedCount;
         const allCount = exportDialog.includeArchived ? order.length : activeCount;
         const canExport = exportDialog.scope === "month" || allCount > 0;
-        const optStyle = (on) => ({ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: on ? "rgba(237,165,36,0.1)" : "var(--surface)", border: `1px solid ${on ? "var(--gold-dim)" : "var(--border)"}`, borderRadius: 8, padding: "10px 12px", marginBottom: 8, cursor: "pointer", color: "var(--text)" });
+        const optStyle = (on) => ({ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: on ? "rgba(237,165,36,0.1)" : "var(--surface)", border: `1px solid ${on ? "var(--gold-dim)" : "var(--border)"}`, borderRadius: BTN_RADIUS, padding: "10px 12px", marginBottom: 8, cursor: "pointer", color: "var(--text)" });
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setExportDialog(null)}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 12, padding: 22, maxWidth: 380, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: s(20, 12), padding: 22, maxWidth: 380, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Download size={16} color="var(--gold)" />
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Export Excel</h3>
               </div>
               <button style={optStyle(exportDialog.scope === "month")} onClick={() => setExportDialog({ ...exportDialog, scope: "month" })}>
                 <span style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Bulan ini saja</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{activeMonth ? monthKeyToLabel(activeMonth) : ""} · 1 sheet</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>Bulan ini saja</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{activeMonth ? monthKeyToLabel(activeMonth) : ""} · 1 sheet</div>
                 </span>
                 {exportDialog.scope === "month" && <Check size={14} color="var(--gold)" />}
               </button>
               <button style={optStyle(exportDialog.scope === "all")} onClick={() => setExportDialog({ ...exportDialog, scope: "all" })}>
                 <span style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Semua bulan</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{allCount} bulan · 1 sheet per bulan</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>Semua bulan</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{allCount} bulan · 1 sheet per bulan</div>
                 </span>
                 {exportDialog.scope === "all" && <Check size={14} color="var(--gold)" />}
               </button>
               {exportDialog.scope === "all" && archivedCount > 0 && (
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text)", margin: "4px 2px 12px", cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text)", margin: "4px 2px 12px", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={exportDialog.includeArchived}
@@ -1819,13 +1845,13 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 <button
                   onClick={confirmExport}
                   disabled={!canExport}
-                  style={{ flex: 1, background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: 7, padding: "9px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: canExport ? 1 : 0.4 }}
+                  style={{ flex: 1, background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: canExport ? 1 : 0.4 }}
                 >
                   Export
                 </button>
                 <button
                   onClick={() => setExportDialog(null)}
-                  style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 7, padding: "9px 0", fontSize: 13, cursor: "pointer" }}
+                  style={{ flex: 1, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: BTN_RADIUS, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                 >
                   Batal
                 </button>
@@ -1838,7 +1864,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       {/* Bentrok antar-perangkat: versi di server lebih baru daripada yang kita lihat */}
       {conflict && (
         <div style={{ position: "fixed", inset: 0, zIndex: 110, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 12, padding: 22, maxWidth: 400, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+          <div style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: s(20, 12), padding: 22, maxWidth: 400, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
             <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Data berubah di perangkat lain</h3>
             <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 14px" }}>
               Jurnal ini sudah disimpan dari perangkat lain setelah terakhir kamu muat, jadi perubahan di sini belum dikirim supaya tidak saling menimpa. Pilih cara menyelesaikannya:
@@ -1852,10 +1878,10 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                 key={key}
                 disabled={resolving}
                 onClick={() => resolveConflict(key)}
-                style={{ width: "100%", textAlign: "left", background: bg, color, border, borderRadius: 8, padding: "10px 12px", marginBottom: 8, cursor: "pointer", opacity: resolving ? 0.6 : 1 }}
+                style={{ width: "100%", textAlign: "left", background: bg, color, border, borderRadius: BTN_RADIUS, padding: "10px 12px", marginBottom: 8, cursor: "pointer", opacity: resolving ? 0.6 : 1 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-                <div style={{ fontSize: 11.5, opacity: 0.8, marginTop: 2 }}>{hint}</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{label}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{hint}</div>
               </button>
             ))}
           </div>
@@ -1865,7 +1891,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       {/* Ringkasan setelah "Gabungkan": bagian dari perangkat ini yang tidak ikut digabung */}
       {mergeNotice && (
         <div style={{ position: "fixed", inset: 0, zIndex: 110, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 12, padding: 22, maxWidth: 400, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+          <div style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: s(20, 12), padding: 22, maxWidth: 400, width: "100%", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
             <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Penggabungan selesai</h3>
             <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
               {mergeNotice.newEntries > 0 && <p style={{ margin: "0 0 8px" }}>{mergeNotice.newEntries} entri dari perangkat ini ditambahkan.</p>}
@@ -1882,7 +1908,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
             </div>
             <button
               onClick={() => setMergeNotice(null)}
-              style={{ width: "100%", background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              style={{ width: "100%", background: "var(--gold-grad)", color: "#0A1628", border: "none", borderRadius: BTN_RADIUS, padding: "10px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >
               Mengerti
             </button>
@@ -1896,16 +1922,16 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
           style={{
             position: "fixed", left: 12, right: 12, bottom: "calc(16px + env(safe-area-inset-bottom))", zIndex: 90,
             maxWidth: 420, margin: "0 auto", background: "var(--surface-raised)", border: "1px solid var(--border)",
-            borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10,
+            borderRadius: BOX_RADIUS, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10,
             boxShadow: "0 12px 30px rgba(0,0,0,0.45)",
           }}
         >
           <Check size={16} color="var(--green)" />
-          <span style={{ flex: 1, fontSize: 12.5, color: "var(--text)" }}>
+          <span style={{ flex: 1, fontSize: 13, color: "var(--text)" }}>
             Import selesai: {importUndo.summary.newEntries} entri baru
             {importUndo.summary.newMonths > 0 ? `, ${importUndo.summary.newMonths} bulan baru` : ""}.
           </span>
-          <button onClick={undoImport} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Urungkan</button>
+          <button onClick={undoImport} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Urungkan</button>
           <button onClick={() => setImportUndo(null)} aria-label="Tutup" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "flex" }}><X size={14} /></button>
         </div>
       )}
