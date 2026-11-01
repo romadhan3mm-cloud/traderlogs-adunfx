@@ -1,12 +1,12 @@
 import React from "react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from "recharts";
 import { fmtMoney, round2 } from "./journalMath.js";
-import { computeMaxDrawdown } from "./drawdown.js";
+import { computeMaxDrawdown } from "./maxDrawdown.js";
 import { BLUE, mix, s, INNER_BG, INNER_BORDER, CardShell, CardHeader, HeaderBadge, IconBadge, GRAD, BOX_RADIUS } from "./CardHeader.jsx";
 
 // Tampilan kartu Statistik. Komponen ini HANYA menampilkan angka yang sudah dihitung di TradingJournal
-// (stats + persentase harian/mingguan/bulanan/tahunan). Hitungan di sini hanya: Profit Bersih = profit - loss - komisi
-// (penarikan/WD tidak ikut, karena bukan hasil trading) dan Max Drawdown (computeMaxDrawdown di src/drawdown.js).
+// (stats + persentase harian/mingguan/bulanan/tahunan). Satu-satunya hitungan di sini: Profit Bersih = profit - loss - komisi
+// (penarikan/WD tidak ikut, karena bukan hasil trading).
 // Warna teks/latar/garis memakai variabel tema supaya ikut tema terang/gelap seperti kartu lain.
 
 function Svg({ size = 20, children, color = "currentColor", stroke = 2 }) {
@@ -24,6 +24,25 @@ function MetricCard({ icon, bg, label, value, valueColor }) {
       <IconBadge bg={bg}>{icon}</IconBadge>
       <div style={{ fontSize: s(14, 8.5), color: "var(--muted)", lineHeight: 1.2, marginTop: s(8, 4), minWidth: 0, overflowWrap: "anywhere", textAlign: "center" }}>{label}</div>
       <div className="tj-mono" style={{ fontSize: "max(10px, min(30px, 5cqw))", letterSpacing: "-.03em", fontWeight: 800, color: valueColor || "var(--text)", marginTop: "auto", paddingTop: s(5, 3), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", textAlign: "center" }}>{value}</div>
+    </div>
+  );
+}
+
+// Pita Max Drawdown: berdiri sendiri di antara dua baris kartu angka (tidak menyentuh kartu; jaraknya sama dengan jarak antar kartu).
+// Angka dari computeMaxDrawdown (src/maxDrawdown.js): penurunan terbesar dari puncak saldo ke lembah berikutnya pada bulan aktif.
+// Penarikan (WD) tidak dihitung sebagai penurunan. Merah bila ada penurunan, netral bila belum pernah turun dari puncak.
+function DrawdownRibbon({ dd }) {
+  const has = !!dd && dd.amount > 0;
+  const tone = has ? "var(--red)" : "var(--muted)";
+  const valueText = !dd ? "—" : has ? `-${fmtMoney(dd.amount)} · -${dd.pct.toFixed(2)}%` : `${fmtMoney(0)} · 0%`;
+  const caption = !dd ? "Belum ada data." : has ? `Puncak ${fmtMoney(dd.peak)} → lembah ${fmtMoney(dd.trough)}` : "Belum ada penurunan dari puncak.";
+  return (
+    <div role="group" aria-label="Max Drawdown" style={{ gridColumn: "1 / -1", minWidth: 0, borderRadius: s(14, 8), padding: `${s(8, 4)} ${s(10, 5)}`, background: has ? mix("var(--red)", 10) : INNER_BG, border: has ? `1px solid ${mix("var(--red)", 40)}` : INNER_BORDER, textAlign: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: s(8, 4) }}>
+        <span style={{ fontSize: s(14, 8.5), color: tone, lineHeight: 1.2 }}>Max Drawdown</span>
+        <span className="tj-mono" style={{ fontSize: "max(10px, min(18px, 3.6cqw))", fontWeight: 800, color: tone, whiteSpace: "nowrap" }}>{valueText}</span>
+      </div>
+      <div style={{ fontSize: s(11, 7), color: "var(--muted)", marginTop: s(3, 2), lineHeight: 1.2 }}>{caption}</div>
     </div>
   );
 }
@@ -194,12 +213,8 @@ export default function StatsCard({ stats, growth, periodRows = {} }) {
   const netProfit = round2(stats.totalProfit - stats.totalLoss - stats.totalKomisi);
   const netText = `${netProfit > 0 ? "+" : ""}${fmtMoney(netProfit)}`;
   const netColor = netProfit > 0 ? "var(--green)" : netProfit < 0 ? "var(--red)" : "var(--text)";
-  const dd = computeMaxDrawdown(periodRows.Bulanan);
-  const ddZero = dd.amount <= 0;
-  const ddTone = ddZero ? "var(--muted)" : "var(--red)";
-  const ddValue = ddZero ? "$0.00 · 0%" : `${fmtMoney(dd.amount, { forceNeg: true })} · -${dd.pct.toFixed(2)}%`;
-  const ddCaption = !dd.hasData ? "Belum ada transaksi bulan ini." : ddZero ? "Saldo belum pernah turun dari puncak." : `Puncak ${fmtMoney(dd.peak)} → lembah ${fmtMoney(dd.trough)}`;
   const rrText = stats.rr === null ? "—" : `${stats.rr.toFixed(2)}x`;
+  const maxDd = computeMaxDrawdown(periodRows.Bulanan); // bulan aktif, sama dengan angka kartu lain
   const pctColor = (p) => (p === null ? "var(--muted)" : p >= 0 ? "var(--green)" : "var(--red)");
   const pctText = (p) => (p === null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`);
 
@@ -241,20 +256,7 @@ export default function StatsCard({ stats, growth, periodRows = {} }) {
               value={lossText}
               valueColor={stats.totalLoss > 0 ? "var(--red)" : undefined}
             />
-            <div
-              role="group"
-              aria-label={`Max Drawdown ${ddValue}. ${ddCaption}`}
-              style={{ gridColumn: "1 / -1", minWidth: 0, borderRadius: s(14, 8), padding: `${s(9, 5)} ${s(14, 7)}`, background: ddZero ? INNER_BG : mix("var(--red)", 12), border: ddZero ? INNER_BORDER : `1px solid ${mix("var(--red)", 45)}` }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: s(8, 4) }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: s(6, 3), minWidth: 0, fontSize: s(14, 8.5), fontWeight: 700, color: ddTone }}>
-                  <Svg size={s(16, 10)} stroke={2.4}><path d="m3 7 6 6 4-4 8 8M15 17h6v-6" /></Svg>
-                  <span>Max Drawdown</span>
-                </span>
-                <span className="tj-mono" style={{ fontSize: s(15, 9.5), fontWeight: 800, color: ddTone, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{ddValue}</span>
-              </div>
-              <div style={{ fontSize: s(12, 8.5), color: ddTone, marginTop: s(3, 2), textAlign: "left" }}>{ddCaption}</div>
-            </div>
+            <DrawdownRibbon dd={maxDd} />
             <MetricCard
               bg={GRAD.indigo}
               icon={<Svg size="55%" stroke={2.4}><circle cx="7.5" cy="7.5" r="2.2" /><circle cx="16.5" cy="16.5" r="2.2" /><path d="M18 5.5 6 18.5" /></Svg>}

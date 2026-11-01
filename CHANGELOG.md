@@ -6,6 +6,27 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.107 — Max Drawdown di antara empat kartu angka Statistik
+
+Menyentuh `src/StatsCard.jsx`, file baru `src/maxDrawdown.js` dan `tests/maxDrawdown.test.mjs`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Di kartu Statistik, di antara baris atas (Total Profit, Total Loss) dan baris bawah (Komisi, Profit Factor), kini ada pita "Max Drawdown": penurunan terbesar saldo dari puncak ke lembah berikutnya pada bulan aktif, dalam dolar dan persen dari puncak (mis. `-$7.50 · -6.25%`).
+- Di bawah angka ada keterangan satu baris: "Puncak $120.00 → lembah $112.50".
+- Pita berdiri sendiri dan tidak menyentuh kartu; jarak atas dan bawahnya sama dengan jarak antar kartu (`gap` grid). Bentuk dan ukuran empat kartu tidak berubah.
+- Merah bila ada penurunan. Bila saldo belum pernah turun dari puncak: "$0.00 · 0%" berwarna netral dengan keterangan "Belum ada penurunan dari puncak." Tanpa data: "—".
+- Hitungan memakai hasil bersih harian (profit - loss - komisi) mulai dari saldo awal bulan. Penarikan (WD) tidak dihitung sebagai penurunan, sama dengan aturan Risk Guard.
+- Hitungan ada di fungsi murni baru `computeMaxDrawdown` (`src/maxDrawdown.js`), memakai baris bulan aktif yang sudah dihitung `computeRows` (`periodRows.Bulanan`).
+- Tinggi kartu Statistik bertambah sekitar satu pita (kurang dari 30 px di HP).
+
+### Tidak berubah
+`computeStats`, `computeRows`, dan `journalMath.js`; `TradingJournal.jsx`; cincin winrate, Profit Bersih, empat kartu angka, grafik, dan semua file lain. Data dan backup tidak berubah (tidak ada field baru).
+
+### Pengujian
+`npm test` lulus (6 tes baru dengan hitungan tangan: contoh 100 → 120 → 112.50 → 134, tanpa penurunan, dua penurunan, penarikan, komisi, data kosong). Render pita sudah dicoba dengan data contoh. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
 ## v1.9.106 — Profit Bersih ditambahkan ke blok statistik ekspor Excel
 
 Menyentuh `src/TradingJournal.jsx` (satu baris di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.
