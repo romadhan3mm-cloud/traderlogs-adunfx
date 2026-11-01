@@ -1,0 +1,1404 @@
+# CHANGELOG TraderLogs
+Satu file untuk semua catatan perubahan. Entri terbaru di atas; entri tahap awal AI News (tanpa nomor versi) ada di bagian paling bawah.
+Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file terpisah.
+
+> ⚠️ **Catatan penting:** jangan mengubah struktur maupun logic yang sudah dibangun (perhitungan, state, simpan/muat, auth, backup, Worker, skema). Perubahan tampilan hanya menyentuh gaya dan wajib mengikuti standar keseragaman (font Inter, 13px/11px, warna `var(--…)`, radius `BTN_RADIUS`/`BOX_RADIUS`, `CardShell`/`CardHeader`, standar tombol). Aturan lengkap ada di bagian "CATATAN PENTING" di `README.md`. Tiap entri harus memuat "Tidak berubah" dan status pengujian.
+
+---
+
+## v1.9.109 — Grafik pertumbuhan saldo default ke jenis Area
+
+Menyentuh `src/TradingJournal.jsx` (satu nilai awal state), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Grafik pertumbuhan saldo kini tampil sebagai grafik Area saat aplikasi dibuka. Sebelumnya default-nya Garis.
+- Pilihan Garis, Batang, dan Area di menu grafik tetap ada dan bisa diganti seperti biasa.
+
+### Tidak berubah
+Isi dan gaya ketiga jenis grafik, menu pilihan, hitungan saldo, `journalMath.js`, `StatsCard.jsx`, penyimpanan/backup, data, dan semua file lain. Pilihan jenis grafik tetap tidak disimpan (kembali ke Area setiap aplikasi dibuka, sama seperti perilaku sebelumnya).
+
+### Pengujian
+`npm test` lulus. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.108 — Pita Max Drawdown disusun vertikal rata tengah
+
+Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Isi pita Max Drawdown kini tersusun vertikal dan rata tengah: ikon (panah turun) dan "Max Drawdown" di atas, keterangan "Puncak ... → lembah ..." di tengah, angka dolar dan persen di bawah.
+- Sebelumnya judul dan angka sebaris dengan keterangan di bawahnya. Lebar, warna, radius, dan jarak pita ke empat kartu tidak berubah; tinggi pita bertambah sekitar satu baris kecil karena kini tiga baris.
+
+### Tidak berubah
+Hitungan Max Drawdown (`src/maxDrawdown.js`), `computeStats`, `computeRows`, `journalMath.js`, `TradingJournal.jsx`, empat kartu angka, cincin winrate, grafik, data, dan semua file lain.
+
+### Pengujian
+`npm test` lulus. Render pita dicoba dengan data contoh. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.107 — Max Drawdown di antara empat kartu angka Statistik
+
+Menyentuh `src/StatsCard.jsx`, file baru `src/maxDrawdown.js` dan `tests/maxDrawdown.test.mjs`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Di kartu Statistik, di antara baris atas (Total Profit, Total Loss) dan baris bawah (Komisi, Profit Factor), kini ada pita "Max Drawdown": penurunan terbesar saldo dari puncak ke lembah berikutnya pada bulan aktif, dalam dolar dan persen dari puncak (mis. `-$7.50 · -6.25%`).
+- Di bawah angka ada keterangan satu baris: "Puncak $120.00 → lembah $112.50".
+- Pita berdiri sendiri dan tidak menyentuh kartu; jarak atas dan bawahnya sama dengan jarak antar kartu (`gap` grid). Bentuk dan ukuran empat kartu tidak berubah.
+- Merah bila ada penurunan. Bila saldo belum pernah turun dari puncak: "$0.00 · 0%" berwarna netral dengan keterangan "Belum ada penurunan dari puncak." Tanpa data: "—".
+- Hitungan memakai hasil bersih harian (profit - loss - komisi) mulai dari saldo awal bulan. Penarikan (WD) tidak dihitung sebagai penurunan, sama dengan aturan Risk Guard.
+- Hitungan ada di fungsi murni baru `computeMaxDrawdown` (`src/maxDrawdown.js`), memakai baris bulan aktif yang sudah dihitung `computeRows` (`periodRows.Bulanan`).
+- Tinggi kartu Statistik bertambah sekitar satu pita (kurang dari 30 px di HP).
+
+### Tidak berubah
+`computeStats`, `computeRows`, dan `journalMath.js`; `TradingJournal.jsx`; cincin winrate, Profit Bersih, empat kartu angka, grafik, dan semua file lain. Data dan backup tidak berubah (tidak ada field baru).
+
+### Pengujian
+`npm test` lulus (6 tes baru dengan hitungan tangan: contoh 100 → 120 → 112.50 → 134, tanpa penurunan, dua penurunan, penarikan, komisi, data kosong). Render pita sudah dicoba dengan data contoh. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.106 — Profit Bersih ditambahkan ke blok statistik ekspor Excel
+
+Menyentuh `src/TradingJournal.jsx` (satu baris di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Blok statistik di file Excel hasil ekspor kini punya baris "Profit Bersih" tepat setelah "Total Komisi": profit - loss - komisi untuk bulan yang diekspor, dibulatkan 2 desimal. Penarikan (WD) tidak ikut. Rumus sama dengan angka Profit Bersih di kartu Statistik.
+- Dihitung langsung di blok ekspor; `computeStats` tidak diubah.
+- Baris di bawahnya (Win Trades, Loss Trades, Winrate, Profit Factor, End Balance) bergeser satu baris ke bawah.
+
+### Tidak berubah
+`computeStats` dan `journalMath.js`, kolom dan susunan sheet lain, nama file, logic ekspor/impor, backup, dan semua file lain. File Excel lama tidak punya baris ini.
+
+### Pengujian
+`npm test` lulus. Ekspor Excel belum dicoba langsung.
+
+---
+
+## v1.9.105 — Label RR di ekspor Excel diganti "Profit Factor"
+
+Hanya label. Menyentuh `src/TradingJournal.jsx` (satu string di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Baris statistik di file Excel hasil ekspor: "RR" menjadi "Profit Factor", supaya sama dengan kartu Statistik (v1.9.104). Nilainya sama.
+
+### Tidak berubah
+Rumus, kolom dan susunan sheet, nama file, logic ekspor/impor, backup, dan semua file lain. File Excel lama yang sudah diunduh tetap berlabel "RR".
+
+### Pengujian
+Hanya string label. `npm test` lulus; ekspor Excel belum dicoba langsung.
+
+---
+
+## v1.9.104 — Label "RR (Risk Reward)" diganti "Profit Factor"
+
+Hanya label. Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Alasan
+Angkanya adalah total profit dibagi total loss (`stats.rr` di `computeStats`), yaitu profit factor, bukan risk reward per transaksi. Label lama menyesatkan.
+
+### Perubahan
+- Label kartu angka di Statistik: "RR (Risk Reward)" menjadi "Profit Factor". Nilai dan format (mis. `2.15x`) sama.
+
+### Tidak berubah
+Rumus (`computeStats`, field `rr`), tes, ekspor Excel (barisnya masih berlabel "RR"), dan semua file lain.
+
+### Pengujian
+Hanya string label; tampilan belum diuji di HP.
+
+---
+
+## v1.9.103 — Tombol emas Statistik Setup diganti judul berpembatas
+
+Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Alasan
+Di kartu Input Transaksi ada dua kotak berbingkai emas (Tambah Transaksi dan STATISTIK SETUP) yang terlihat seperti tombol yang sama. Emas dikembalikan khusus untuk aksi utama.
+
+### Perubahan
+- Statistik Setup tetap kartu dalam (latar `INNER_BG`, garis `INNER_BORDER`, radius sama).
+- Tombol berbingkai emas diganti baris judul "Statistik Setup" (`var(--text)`, 800) dengan panah `var(--muted)` di kanan. Baris ini tetap bisa diketuk untuk buka-tutup.
+- Di bawah judul ada garis pembatas `1px solid mix(BLUE, 55)`, sama dengan garis di bawah judul kartu (`CardHeader`).
+- Baris ringkasan terlipat dan isi saat terbuka tidak berubah.
+
+### Tidak berubah
+Hitungan (`computeSetupStats`), data, isi saat terbuka (dua kotak ringkasan, baris per tag), ringkasan terlipat, dan semua file lain.
+
+### Pengujian
+`npm test` lulus. Sintaks JSX dicek dengan tsc. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.102 — Profit Bersih ditambahkan di bawah cincin winrate
+
+Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Di bawah cincin winrate (di luar cincin) kini ada label kecil "Profit Bersih" dan angkanya: `profit - loss - komisi` untuk bulan aktif, sama seperti kartu angka lain di Statistik. Hijau bila positif, merah bila negatif, `var(--text)` bila nol.
+- Penarikan (WD) tidak ikut dihitung, karena bukan hasil trading (sama dengan aturan Risk Guard dan `computeRows`).
+- Cincin dibungkus satu `div` kolom supaya label bisa di bawahnya; ukuran dan perilaku cincin tidak berubah.
+
+### Tidak berubah
+`computeStats` dan `journalMath.js`, empat kartu angka, grafik, cincin winrate, dan semua file lain.
+
+### Pengujian
+Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.101 — Rincian per tag di Statistik Setup tidak lagi berbentuk kartu
+
+Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx` (gaya baris per tag), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Baris per tag (Pullback, Breakout, Reversal, Tanpa setup) kini baris polos: tanpa latar `INNER_BG`, tanpa garis kotak, tanpa radius. Antar baris dipisah garis tipis `1px solid var(--border)`.
+- Isi baris (nama tag, jumlah hari, persentase menang, hasil bersih), warna, ukuran font, dan urutan tidak berubah.
+
+### Perbaikan catatan
+- Entri v1.9.89–v1.9.100 yang sebelumnya berupa 12 file `CHANGELOG_*.md` terpisah digabung ke bagian atas file ini, sesuai aturan satu file. File terpisah dihapus; isinya dipindah apa adanya (hanya level judul disesuaikan).
+
+### Tidak berubah
+Hitungan (`computeSetupStats`), data, dua kotak ringkasan "Sesuai setup" dan "Tanpa setup", tombol STATISTIK SETUP, baris ringkasan terlipat, dan semua file lain.
+
+### Pengujian
+Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.100 — Statistik Setup masuk ke dalam kartu Input Transaksi
+
+- Statistik Setup tidak lagi kartu terpisah. Sekarang kartu dalam di bawah tabel Input Transaksi, dengan tombol emas "STATISTIK SETUP" seperti Capital Lot Reference di kartu Rekomendasi Lot.
+- Terlipat bawaan, dengan satu baris ringkasan di bawah tombol. Ketuk tombol untuk membuka rincian per tag.
+- File `SetupStatsCard.jsx` diganti `SetupStatsSection.jsx`. Hitungan dan data tidak berubah.
+
+---
+
+## v1.9.99 — Statistik Setup dipindah dan dibuat terlipat
+
+- Kartu Statistik Setup sekarang tepat di bawah kartu Input Transaksi (sebelumnya di bawah kartu Statistik).
+- Terlipat bawaan: tinggal satu baris ringkasan ("Sesuai setup +$... · Tanpa setup -$..."). Ketuk RINCIAN untuk membuka rincian per tag.
+- Tidak ada perubahan hitungan atau data.
+
+---
+
+## v1.9.98 — Tag setup dan checklist sebelum entry
+
+Baru
+- Tombol Tambah Transaksi membuka dialog "Sebelum entry": pilih tag setup, lalu centang checklist.
+  Kalau tag "Tanpa setup" dipilih atau checklist belum lengkap, muncul peringatan; menekan tombol sekali lagi ("Tetap lanjut") tetap mencatat apa adanya. Jurnal tidak memblokir pencatatan jujur.
+- Tag disimpan di data per hari (field `setup`). Bisa diganti kapan saja lewat tulisan kecil di bawah tanggal pada tabel (entri lama tampil "Tag?").
+- Kartu baru "Statistik Setup" di bawah kartu Statistik: hasil bersih (profit - loss - komisi) dan persentase hari menang untuk "Sesuai setup" vs "Tanpa setup", plus rincian per tag. Dihitung dari semua bulan; entri tanpa tag tidak ikut dihitung.
+- `src/setupConfig.js`: daftar tag dan isi checklist. Mau ganti nama tag atau isi checklist cukup ubah file ini (id tag yang sudah dipakai jangan diubah).
+- Tes baru `tests/setupConfig.test.mjs` (hitungan dicek tangan).
+
+Tidak diubah: logic hitung saldo, Risk Guard, penyimpanan, dan backup. Field `setup` otomatis ikut ekspor/impor backup.
+
+---
+
+## v1.9.97 — Hapus overlay debug
+
+- Overlay diagnosis layar (dibuka lewat ?debug=1 atau ketuk footer 5 kali) dihapus dari `src/viewportGap.js` dan `src/main.jsx`.
+- `installViewportGap` (penyesuaian celah layar iPhone) dan `barFadeBg` tidak diubah.
+
+---
+
+## v1.9.96 — Konfirmasi sebelum hapus transaksi
+
+- Ikon tempat sampah di baris transaksi sekarang membuka dialog "Hapus transaksi?" (menampilkan tanggalnya) dengan tombol Ya, Hapus dan Batal.
+- Mengetuk area gelap di luar dialog sama dengan Batal.
+- Logic penghapusan (`deleteEntry`) dan penyimpanan tidak diubah.
+- Perubahan hanya di `src/TradingJournal.jsx`.
+
+---
+
+## v1.9.95 — Fade tepi bawah header dibuat sedang
+
+- Tinggi fade tepi bawah header: 32 px menjadi 20 px (tidak berlebihan), tetap bertahap tanpa garis tegas.
+- Blur, warna, logic, dan struktur tidak diubah.
+- Satu-satunya perubahan kode: `.tj-hdr::before` di `src/tjStyles.js`.
+
+---
+
+## v1.9.94 — Tepi bawah header memudar lebih halus
+
+- Tinggi fade tepi bawah header: 12 px menjadi 32 px.
+- Gradasi dibuat bertahap (9 titik, melambat di ujung) supaya tidak ada garis tegas.
+- Blur (`--glass-blur`), warna, logic, dan struktur tidak diubah.
+- Satu-satunya perubahan kode: `.tj-hdr::before` di `src/tjStyles.js`.
+
+---
+
+## v1.9.93 — Satu pengaturan blur untuk kartu dan header
+
+Menyentuh `src/tjStyles.js`, `src/CardHeader.jsx`, `src/TargetSimulator.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Variabel baru `--glass-blur: 6px` (di `tjStyles.js`) dipakai oleh blur kartu (`GlassLayer`), kotak error Simulasi, dan header. Cukup ubah satu angka untuk mengubah semuanya.
+- Blur header turun dari 8px ke 6px agar sama dengan kartu.
+
+### Tidak berubah
+Blur kartu (tetap 6px), latar tint dan gradien header, perilaku header yang hanya buram saat halaman digulir, tab bar bawah (solid, tanpa blur), dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Belum diuji tampilan di HP (terutama keterbacaan header saat isi bergulir di bawahnya).
+
+---
+
+## v1.9.92 — Grafik Growth % per Bulan disamakan dengan Pertumbuhan Saldo
+
+Hanya menyentuh `src/TradingJournal.jsx` (grafik Growth % per Bulan di kartu Perbandingan) dan versi di `package.json`.
+
+### Perubahan
+- Ditambah garis vertikal (sumbu Y) yang jelas, sama dengan grafik Pertumbuhan Saldo (sebelumnya tidak ada).
+- Garis horizontal paling bawah (sumbu X) kini solid dan sama jelasnya; garis grid putus-putus paling bawah tidak digambar lagi (memakai `gridWithoutBottom` dari v1.9.91).
+- Garis acuan 0% kini solid dengan warna sumbu (sebelumnya putus-putus). Bila semua bulan positif, garis ini berimpit dengan sumbu bawah sehingga tidak terlihat putus-putus; bila ada bulan negatif, ia menjadi garis dasar 0%.
+
+### Tidak berubah
+Data, batang dan warnanya, tooltip, grid horizontal lain (tetap putus-putus), dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Sintaks JSX dicek dengan tsc. Belum diuji tampilan di HP.
+
+---
+
+## v1.9.91 — Garis paling bawah grafik Pertumbuhan Saldo tidak putus-putus
+
+Menyentuh `src/TradingJournal.jsx`, `src/chartUtils.js` (baru), `tests/chartUtils.test.mjs` (baru), dan versi di `package.json`.
+
+### Masalah
+Garis grid horizontal paling bawah berimpit dengan sumbu X. Grid berupa garis putus-putus, sehingga garis bawah terlihat putus-putus walau sumbu X sudah solid.
+
+### Perubahan
+- Pada ketiga tampilan grafik Pertumbuhan Saldo (Garis, Batang, Area), garis grid paling bawah tidak digambar lagi; yang terlihat hanya sumbu X yang solid, sama seperti sumbu Y.
+- Penentuan "garis paling bawah" ada di `isBottomGridLine` (`src/chartUtils.js`, fungsi murni, 3 tes baru). Bila data dari recharts tidak lengkap, garis tetap digambar seperti sebelumnya.
+
+### Tidak berubah
+Garis grid lain (tetap putus-putus), data grafik, grafik Perbandingan Bulan, dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Sintaks JSX dicek dengan tsc. Belum diuji tampilan di HP (recharts tidak terpasang di lingkungan ini).
+
+---
+
+## v1.9.90 — Tes otomatis, pembatas permintaan Worker, dan pemisahan TradingJournal
+
+### 1. Tes otomatis (tanpa dependensi tambahan)
+- `npm test` menjalankan 27 tes dengan test runner bawaan Node (`node --test`).
+- `tests/journalMath.test.mjs` (18 tes): fmtMoney, parse/format isian uang, round2, computeRows (start, target 3%, batas loss -4%, saldo berantai, withdraw), computeStats (winrate, RR, kasus kosong), periodGrowthPercent, computeDailyRiskGuard (ambang safe 75% / warning / limit 100%, penarikan bukan kerugian, komisi, modal 0, memakai saldo hari sebelumnya), computeLotRecommendation, tingkat modal referensi, dan fungsi tanggal (hari lokal, Senin sebagai awal minggu).
+- `tests/worker.test.mjs` (9 tes): pembatas permintaan, penolakan Origin lintas asal, validasi host push, rute statis, dan 404.
+- Nilai harapan dihitung tangan. Diuji dengan merusak kode sengaja (target 5%, ambang warning 80%, batas analyze 1000): tiga tes yang relevan gagal, jadi tes benar-benar menjaga angka.
+
+### 2. Build lebih stabil
+- `package.json`: `engines.node >= 20`, skrip `test`. Penguncian rollup 4.34.8 dari v1.9.73 tetap.
+- Lockfile belum bisa dibuat di sini (tanpa jaringan). Lihat langkah di balasan: jalankan `npm install` di komputer Anda lalu commit `package-lock.json`, dan hapus lockfile lain bila ada.
+
+### 3. Worker
+- Pembatas permintaan per IP (best-effort lewat KV): `/api/ai-news/analyze` maksimal 10 per 10 menit, `/api/ai-news/subscribe` maksimal 20 per jam. Lewat batas dijawab 429 dengan pesan Indonesia. Bila KV tidak ada atau gagal, permintaan tetap dilayani (fitur tidak terganggu).
+- Pemeriksaan yang sudah ada tidak diubah: penolakan POST lintas asal, daftar host push, batas panjang endpoint, jeda 1 menit tes push, pembersihan teks.
+- Perlu deploy ulang Worker agar aktif.
+
+### 4. Pemisahan TradingJournal.jsx (1.893 menjadi 1.774 baris)
+- Dipindah apa adanya ke file sendiri: `CalendarPopover.jsx`, `MonthActionMenu.jsx`, `MonthDropdown.jsx`. Kondisi tampil tetap di induk; semua state dan fungsi dikirim lewat props.
+- Diperiksa dengan tsc: tidak ada nama yang hilang di semua komponen. Belum diuji di aplikasi berjalan.
+
+### 5. Sinkronisasi dua perangkat
+- Diperiksa, tidak diubah. Penyimpanan jurnal sudah memakai penulisan bersyarat (`setIfMatch` dengan `updated_at`), deteksi konflik, dan tidak menimpa diam-diam; data gagal simpan ditahan untuk dicoba ulang.
+
+### Tidak berubah
+Tampilan, perhitungan, struktur data, dan semua file lain.
+
+---
+
+## v1.9.89 — Latar kartu sedikit ngeblur + garis bawah grafik Pertumbuhan Saldo diperjelas
+
+Menyentuh `src/CardHeader.jsx`, `src/RiskGuardCard.jsx`, `src/TargetSimulator.jsx`, `src/TradingJournal.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Semua kartu (CardShell, Risk Guard, kotak error Simulasi) kini punya blur halus (6px) pada latar di belakangnya. Warna latar kartu (`--surface-soft`) tidak diubah.
+- Blur dipasang lewat lapisan `GlassLayer` di belakang isi kartu, bukan filter pada kartunya, supaya menu dan elemen fixed/absolute di dalam kartu tidak berubah perilaku. Kartu pemakainya diberi `isolation: isolate`.
+- Grafik Pertumbuhan Saldo (tampilan Garis, Batang, dan Area): garis sumbu horizontal bawah kini sama jelasnya dengan garis sumbu vertikal (warna `tick`, opacity 0.45), sebelumnya memakai warna grid yang samar.
+
+### Tidak berubah
+Perhitungan, state, data grafik, grid, dan grafik lain (Perbandingan Bulan, Statistik, Simulasi), serta semua file lain.
+
+### Pengujian
+Efek blur diuji di Chromium dengan struktur yang sama (container-type, isolation, lapisan blur): latar tersamarkan, teks tetap tajam. Sintaks JSX dicek dengan tsc. Belum diuji di iPhone (Safari) maupun build Vite penuh.
+
+---
+
+## v1.9.88 — Kartu bulan aktif memakai gaya kotak dalam (bukan emas)
+
+Hanya tampilan. Menyentuh `src/TradingJournal.jsx` (gaya satu kotak) dan versi di `package.json`.
+
+### Alasan
+Kartu bulan aktif berbingkai emas dan teks emas, bersebelahan dengan tombol Tambah Transaksi yang juga emas, sehingga area itu terlihat ramai.
+
+### Perubahan
+- Kartu bulan aktif (kalender + daftar bulan) memakai gaya kotak dalam seperti kartu angka di Risk Guard: latar `INNER_BG`, garis `INNER_LINE` (biru 45%, 1px) menggantikan garis emas 1.5px.
+- Teks bulan `var(--text)`; ikon kalender dan panah `var(--muted)` (sebelumnya emas). Garis pemisah vertikal tidak berubah.
+- Emas di area ini kini hanya pada tombol Tambah Transaksi.
+
+### Tidak berubah
+Semua handler (`setCalendarOpen`, `setMonthDdOpen`, posisi menu), tata letak, ukuran, radius, tombol Bulan Baru, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc; tampilan di HP belum diuji.
+
+---
+
+## v1.9.87 — Tombol Tambah Transaksi dibuat lebih ringan
+
+Hanya tampilan. Menyentuh `src/TradingJournal.jsx` (gaya satu tombol), `README.md`, dan versi di `package.json`.
+
+### Alasan
+Tombol Tambah Transaksi berisi gradasi emas penuh selebar kartu sehingga terlihat pekat dan terlalu menonjol dibanding elemen lain.
+
+### Perubahan
+- Dari isi gradasi emas penuh dengan teks gelap menjadi isi emas tipis 14%, garis emas 1.5px, teks emas, ketebalan 700 (gaya sama dengan lencana kepala kartu). Tinggi minimal 42px dan lebar tidak berubah.
+- `README.md`: varian "Utama lembut" ditambahkan ke standar tombol. Tombol utama gradasi di dialog tidak berubah.
+
+### Tidak berubah
+`onClick` (`addEntry`), `title`, tata letak, jarak, teks, dan semua file lain.
+
+### Pengujian
+Hanya dibandingkan lewat gambar uji; tampilan di HP belum diuji. Alternatif bila terasa terlalu pucat: gradasi dipudarkan (emas 38% di atas warna kartu, teks `var(--text)`).
+
+---
+
+## v1.9.86 — WASPADA di tema terang dibuat lebih hidup
+
+Hanya tampilan. Menyentuh `src/tjStyles.js` (satu nilai) dan versi di `package.json`.
+
+### Alasan
+Cyan WASPADA tema terang (`#0891B2`) terlihat biasa/meredup di atas latar biru muda; di tema gelap sudah jelas.
+
+### Perubahan
+- `--warn` tema terang: `#0891B2` → `#00B8D4` (lebih jenuh dan terang, hue tetap cyan sehingga masih jauh dari biru aksen, emas, hijau, dan merah).
+
+### Tidak berubah
+`--warn` tema gelap (`#38D0F0`), semua logic dan ambang status, serta semua file lain.
+
+### Pengujian
+Hanya dibandingkan lewat gambar uji; tampilan di HP belum diuji. Alternatif yang lebih mencolok di tema terang: ungu `#7C4DDB` (tetapi mirip ikon "Sisa batas"). Teks "WASPADA" berwarna cyan terang di atas lencana pucat kontrasnya lebih rendah; kalau kurang terbaca, pakai `#00A6C7`.
+
+---
+
+## v1.9.85 — Warna status WASPADA Risk Guard dibedakan dari emas
+
+Hanya tampilan. Menyentuh `src/RiskGuardCard.jsx`, `src/tjStyles.js` (satu variabel baru), `README.md`, dan versi di `package.json`.
+
+### Alasan
+Status WASPADA memakai `--gold`, warna yang sama dengan warna merek dan aksen di halaman (tagline, End Balance, garis tombol, badge Grafik, tombol Tambah Transaksi). Akibatnya kartu berstatus waspada tidak terbedakan dari elemen biasa.
+
+### Perubahan
+- Variabel tema baru `--warn`: cyan `#38D0F0` (gelap) dan `#0891B2` (terang). Oranye sempat dicoba tetapi terlalu dekat ke merah.
+- Status WASPADA di `RiskGuardCard.jsx` (perisai, lencana, cincin dan glow, bar, garis luar kartu) memakai `--warn` menggantikan `--gold`. Gradasi bar menuju cyan muda.
+- Urutan status kini: AMAN hijau, WASPADA cyan, BATAS TERCAPAI merah. `README.md` mencatat bahwa emas bukan warna status.
+
+### Tidak berubah
+Semua logic dan ambang status (`journalMath.js`: 75% waspada, 100% batas), glow dan ukuran cincin per status, status AMAN, BATAS TERCAPAI, dan BELUM ADA MODAL, serta semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Tampilan di HP belum diuji: perlu dicek kontras cyan di tema terang dan gelap. Ikon "Kerugian bersih" di kartu yang sama juga tosca (mirip). Kalau kurang pas, ubah nilai `--warn` di `tjStyles.js` saja (alternatif: ungu `#7C4DDB`/`#A98BFF`, magenta `#C2185B`/`#FF5FA8`).
+
+---
+
+## v1.9.84 — Catatan penting keselarasan; radius, warna, jarak, judul, font diseragamkan
+
+Hanya tampilan dan dokumentasi. Hasil audit keselarasan (perkiraan awal 76%) dikerjakan per poin. Menyentuh `README.md`, `CHANGELOG.md`, `package.json`, `src/TradingJournal.jsx`, `src/tjStyles.js`, `src/journalWidgets.jsx`, `src/authStyles.js`, `src/CardHeader.jsx`, `src/RiskGuardCard.jsx`, `src/StatsCard.jsx`, `src/TargetSimulator.jsx`, `src/AINews.jsx`, `src/EconomicCalendar.jsx`, `src/TradingViewChart.jsx`, `src/RecommendationCard.jsx`, dan `worker/ai-news-worker.js` (hanya teks user-agent).
+
+### 0. Catatan penting
+- `README.md`: bagian baru "CATATAN PENTING" (jangan ubah struktur/logic; tabel standar font, warna, radius, kartu, tombol, jarak, bahasa, tema; cara mencatat perubahan). Pengingat singkat di kepala `CHANGELOG.md`.
+
+### 1. Tombol
+- Tombol dialog/konfirmasi/putus-putus/pilihan di `TradingJournal.jsx` memakai `BTN_RADIUS` (menggantikan 6/7/8) dan ketebalan 700. `.tj-export-btn` mengikuti (13px/700).
+
+### 2. Radius
+- `TradingJournal.jsx`: kotak, menu, tooltip, tombol ikon kecil, tanggal kalender, toast → `BOX_RADIUS`; isi menu → `calc(BOX_RADIUS - 4px)`; dialog → `s(20, 12)`.
+- `tjStyles.js` (impor `BTN_RADIUS`/`BOX_RADIUS`), `journalWidgets.jsx`, `TargetSimulator.jsx`, `StatsCard.jsx` ikut token yang sama.
+- `authStyles.js`: 9px → 8px (tombol tutup), kotak pesan 8px → 10px (satu skala login: 8 tombol kecil, 10 sisanya). Desain pil/14px tema terang tidak diubah.
+
+### 3. Warna
+- Variabel tema baru di `tjStyles.js` (gelap dan terang, nilai warna sama seperti sebelumnya): `--info`, `--weekend`, `--amber`, `--navy-btn-bg/-text`, `--navy-sel-bg/-border`. Menggantikan hex `#3AA0E0`, `#A33A3A`, `#D99A20` dan `#18395F/#E8F1FF/#263D5D/#6686B3` (percabangan `isLight`) di kalender, chart, AI News, kartu Rekomendasi, Risk Guard, Simulasi, Jurnal.
+
+### 4. Jarak dan judul
+- Jarak antar kartu 14: bawaan `CardShell` 20 → 14, `RiskGuardCard` 16 → 14.
+- Judul kartu Title Case: "Analisis Fundamental AI", "Pengingat Otomatis & iPhone", "Catatan Penting".
+
+### 5. Font
+- 10px → 11px, 12px/14px → 13px pada label hari dan tanggal kalender, keterangan, tooltip Statistik. Ketebalan 600 → 700 di seluruh sumber (termasuk bar tab bawah, tombol Masuk, judul login).
+- Tingkat judul 15px (dialog) dan 18px (layar penuh/saldo) dibiarkan dan kini tertulis di standar.
+
+### 6. Kosmetik
+- Teks user-agent Worker `1.9.45` → `1.9.84`.
+
+### Tidak berubah
+Semua logic, state, handler, perhitungan, penyimpanan, auth, backup, fetch, skema Supabase, struktur komponen, dan props. Warna aktual di kedua tema sama (hanya dipindah ke variabel). Gradasi emas, warna merek Splash/Brand, warna candle TradingView, dan overlay debug `viewportGap.js` tidak diubah. Radius 999 dan `s(14, 8)` yang sudah standar dibiarkan.
+
+### Pengujian
+Sintaks JSX semua file dicek dengan tsc (tanpa error sintaks); isi `tjStyles.js` dievaluasi dan variabel/token terpasang. Build Vite penuh tidak bisa dijalankan di lingkungan ini (registri npm tidak terjangkau); tampilan di HP belum diuji. Perlu dicek di perangkat: (a) `BTN_RADIUS`/`BOX_RADIUS` di luar kartu (dialog, menu) mengikuti lebar layar; (b) ketebalan 700 pada bar tab bawah dan tabel tidak membuat teks turun baris; (c) jarak antar kartu 14 di tab Jurnal terasa pas.
+
+---
+
+## v1.9.83 — Glow cincin Risk Guard menyesuaikan status
+
+Menyentuh `src/RiskGuardCard.jsx`, `src/tjStyles.js` (satu aturan CSS), dan versi di `package.json`.
+
+### Perubahan
+- Cincin sebelumnya sudah punya glow tetap (5px, 40%). Kini kekuatannya mengikuti status:
+  AMAN tetap seperti semula, WASPADA lebih terang (7px, 55%), BATAS TERCAPAI paling kuat (9px, 65%), BELUM ADA MODAL tetap.
+- Tema terang: glow cincin dibuat lebih tipis (3px) lewat `.tj-rg-ring` di `tjStyles.js`.
+
+### Tidak berubah
+Glow perisai dan titik status, gradasi cincin dan bar, garis luar kartu, perhitungan, props, dan semua file lain. Latar kartu tidak diberi gradasi.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Belum diuji build Vite penuh dan tampilan di HP.
+
+---
+
+## v1.9.82 — Ikon tema terang/gelap pindah ke header
+
+Hanya menyentuh `src/TradingJournal.jsx` (tampilan) dan versi di `package.json`.
+
+### Perubahan
+- Ikon matahari/bulan dipindah dari baris End Balance ke header, tepat di bawah tombol titik tiga (rata kanan, ukuran dan gaya sama dengan titik tiga: 28px, ikon 16).
+- Ikon tema tetap tampil walau tombol menu (titik tiga) tidak ada.
+- Baris End Balance kini hanya berisi label dan angka.
+
+### Tidak berubah
+Fungsi `toggleTheme`, penyimpanan tema, menu titik tiga dan isinya, tinggi header, dan semua file lain. Kelas CSS `.tj-bal-theme` di `tjStyles.js` dibiarkan (tidak lagi dipakai).
+
+### Pengujian
+Belum diuji build Vite penuh dan tampilan di HP. Perlu dicek: menu titik tiga yang terbuka menutupi ikon tema (wajar), dan ikon tidak bertabrakan dengan logo di layar sempit.
+
+---
+
+## v1.9.81 — Keseragaman font, warna, radius; header dan tab dalam satu kartu
+
+Hanya tampilan. Perhitungan, state, penyimpanan, fetch, dan struktur komponen tidak diubah.
+Menyentuh `CardHeader.jsx`, `TabSwitch.jsx`, `AINews.jsx`, `EconomicCalendar.jsx`, `TradingViewChart.jsx`, `authStyles.js`, `Splash.jsx`, dan versi di `package.json`.
+
+### 1. Ukuran font AI News, Kalender, Chart
+- 8, 9, 10px menjadi 11px (keterangan); 12px menjadi 13px (teks isi). Sama dengan standar Jurnal (v1.9.76).
+- Memakai angka tetap 11/13px, bukan `s()`: `s(13, 10)` di HP menjadi 10px sehingga teks bacaan malah mengecil dari 12px.
+- Label PREVIOUS/FORECAST/ACTUAL kini 11px; "ACTUAL · MENUNGGU" bisa turun ke dua baris di HP sempit.
+
+### 2. Ketebalan font
+- 850 menjadi 800 dan 750 menjadi 700 (AI News). Google Fonts hanya memuat 400-800.
+
+### 3. Palet warna
+- `EconomicCalendar`, `TradingViewChart`, `TabSwitch`: palet salinan diganti `var(--surface)`, `--surface-raised`, `--border`, `--text`, `--muted` (ikut tema).
+- Merah HIGH IMPACT memakai `var(--red)`.
+- Tidak diubah: warna candle widget TradingView (`#26A69A`, `#EF5350`, perlu hex asli), merah Sabtu/Minggu kalender (`#A33A3A`), amber MEDIUM IMPACT, warna tombol aktif (`#18395F` / `#E8F1FF`).
+
+### 4. Radius
+- Token baru `BOX_RADIUS` (= `s(10, 6)`) di `CardHeader.jsx` untuk kotak dalam.
+- AI News, Kalender, Chart, TabSwitch: tombol memakai `BTN_RADIUS`, kotak dalam `BOX_RADIUS`, pil tetap 999. Total 14 nilai berbeda di file-file ini menjadi 3 token.
+- Belum diubah: radius 6/7/8/9px di Jurnal lama (`TradingJournal.jsx`, `tjStyles.js`, `journalWidgets.jsx`) karena sebagian untuk elemen kecil/bulat dan perlu dicek di perangkat.
+
+### 5. Font layar login dan Splash
+- 12.5px menjadi 13px, 12px menjadi 13px, 10.5px dan 10px menjadi 11px (`authStyles.js`, `Splash.jsx`). Input 16px (anti zoom iOS) tidak diubah.
+
+### 6. Header dan tab dalam satu kartu
+- AI News: tombol Kalender / Analisis AI / Info masuk ke kartu "AI News XAU/USD" (kepala kini memakai garis pembatas biru standar). Isi tab tetap kartu sendiri.
+- Chart: tombol Chart | Berita masuk ke kartu XAU/USD (tab Chart) dan ke kartu Kalender Ekonomi (tab Berita).
+- Tambahan kecil tanpa mengubah perilaku: `TabSwitch` punya prop `marginBottom` (default 12), `EconomicCalendar` punya prop `afterHeader` (default kosong).
+- Pesan error AI News kini tampil di bawah kartu tab, bukan di antara header dan tab.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc (lolos). Build Vite penuh dan tampilan di HP belum diuji.
+
+---
+
+## v1.9.80 — AI News memakai tab seperti menu Chart
+
+Hanya tampilan; logic AI News tidak diubah.
+
+- Tab baru di AI News (gaya sama dengan Chart | Berita): Kalender, Analisis AI, Info. Hanya satu bagian tampil sekaligus supaya halaman tidak perlu digulir jauh.
+- Kalender: kartu Kalender Ekonomi. Analisis AI: kartu Analisis fundamental AI. Info: Pengingat otomatis & iPhone dan Catatan penting.
+- Bagian yang tidak aktif hanya disembunyikan (tidak dilepas), jadi filter kalender dan hasil analisis tidak hilang saat pindah tab dan kalender tidak dimuat ulang.
+- Judul AI News dan pesan error tetap di atas semua tab.
+- Komponen tab dipisah ke `src/TabSwitch.jsx` dan dipakai juga oleh menu Chart (tampilan Chart tidak berubah).
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Build Vite penuh dan tampilan di HP belum diuji.
+
+---
+
+## v1.9.79 — Perapian: baris Input Transaksi, sumbu grafik saldo, judul Simulasi, halaman AI News
+
+Hanya tampilan. Perhitungan, state, penyimpanan, dan fitur tidak diubah.
+
+- Input Transaksi: garis tipis di bawah tiap baris dihapus (baris polos, tanpa kartu).
+- Pertumbuhan Saldo (menu Jurnal): garis vertikal ditambahkan di sumbu skala untuk tampilan Garis, Batang, dan Area.
+- Milestone dan Cek Realita (Simulasi): judul dipendekkan dan keterangannya dipindah ke subjudul supaya tidak bertumpuk di HP.
+- AI News dirapikan. Urutan sekarang: judul, pesan error (jika ada), Kalender Ekonomi, Analisis fundamental AI, Pengingat otomatis & iPhone, lalu satu kartu Catatan penting. Status layanan, Kalender dan jadwal, dan Risk awareness digabung jadi tiga baris di kartu Catatan penting karena hanya berupa informasi, bukan menu.
+
+### Tidak berubah
+Logic AI News (muat data, analisis, notifikasi), tombol Pengingat otomatis, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Build Vite penuh dan tampilan di HP belum diuji.
+
+---
+
+## v1.9.78 — Keseragaman: bentuk tombol, kepala kartu standar, lebar kartu, baris Input Transaksi
+
+Hanya tampilan. Perhitungan, state, penyimpanan, ekspor, dan fitur tidak diubah.
+
+### 1. Bentuk tombol
+- Tombol aksi memakai persegi bulat (`BTN_RADIUS` di `CardHeader.jsx`, nilainya sama dengan tombol Tambah Transaksi).
+- Download Excel dan Reset ke default (Simulasi): dari pil menjadi persegi bulat.
+- Tombol filter Kalender Ekonomi (Semua jadwal / Akan datang / Sudah rilis): dari pil menjadi persegi bulat.
+- Tetap pil: lencana kepala kartu (PERFORMA, GRAFIK, MUAT ULANG), lencana status (Risk Guard, HIGH/MEDIUM IMPACT), dan tombol di halaman login.
+
+### 2. Kepala kartu standar (ikon bulat, judul, garis biru)
+- AI News: judul halaman, Status layanan, Analisis fundamental AI, Pengingat otomatis & iPhone, Kalender & jadwal, Risk Awareness.
+- Kalender Ekonomi: kepala standar dengan lencana MUAT ULANG. Kepala ganda di AI News dan di tab Berita (Chart) dihapus.
+- Chart: kartu XAU/USD memakai kepala standar; tombol timeframe dan widget TradingView tidak diubah.
+
+### 3. Lebar kartu
+- Padding halaman kiri-kanan 28px menjadi 16px di `TradingJournal.jsx`. Kartu bertambah lebar sekitar 24px di semua menu.
+- Header yang menempel (`.tj-hdr`) dan tombol aksi header di `tjStyles.js` ikut 16px supaya tetap sejajar dengan kartu.
+
+### 4. Baris Input Transaksi
+- Ikon tanggal di kolom Tanggal dihapus (hanya hiasan, bukan tombol; kalender tetap dibuka lewat tombol bulan aktif).
+- Baris tidak lagi berbentuk kartu: tanpa latar dan sudut bulat, hanya garis pemisah tipis di bawah tiap baris.
+
+### Tidak berubah
+Logic, state, penyimpanan, kolom isian (72px, 16px di HP), tinggi tombol, menu titik tiga, kartu Statistik, Risk Guard, Rekomendasi Lot, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc (lolos). Build Vite penuh dan tampilan di HP belum diuji.
+
+---
+
+## v1.9.77 — Input Transaksi: font dan jarak ikut lebar kartu (seperti tabel Simulasi)
+
+Hanya menyentuh `src/TradingJournal.jsx` (bagian kartu Input Transaksi) dan versi di `package.json`.
+
+### Perubahan
+- Tabel entri: font isi 13px menjadi `s(13, 10)` (±10px di HP), jarak sel `s(10, 5)` atas-bawah dan `s(6, 3)` kiri-kanan (sebelumnya 10px), jarak sel isian `s(8, 4)` dan `s(3, 2)`.
+- Judul kolom: `s(12, 9.5)` dan berwarna biru, sama dengan tabel Simulasi.
+- Batas lebar minimum tabel 780px dihapus; tabel kini selebar isinya dan hanya bergeser jika benar-benar tidak muat.
+- Lingkaran ikon kalender di kolom Tanggal mengikuti lebar kartu.
+- Tombol bulan aktif, Bulan Baru, Tambah Transaksi, keterangan tanggal, dan teks "Belum ada entry" memakai skala yang sama.
+
+### Tidak berubah
+Kolom isian (lebar 72px dan font 16px di HP supaya iOS tidak zoom saat mengetik), tinggi tombol (42px), menu titik tiga, perhitungan, state, penyimpanan, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.76 — Ukuran font Jurnal dirapikan ke 13px dan 11px
+
+Hanya menyentuh `src/TradingJournal.jsx` (tampilan) dan versi di `package.json`.
+
+### Hasil pemeriksaan
+Ukuran font tetap di `TradingJournal.jsx` sudah hampir seragam: 13px (teks isi, 46 tempat) dan 11px (keterangan, 35 tempat). Yang menyimpang hanya 12.5px (4 tempat) dan 11.5px (3 tempat).
+
+### Perubahan
+- 12.5px menjadi 13px (baris ringkasan Import, label dan tombol Urungkan).
+- 11.5px menjadi 11px (keterangan Export dan keterangan pesan).
+
+### Tidak berubah
+Ukuran lain (judul dialog 15px, judul kalender 14px, 12px, 10px), perhitungan, state, dan semua file lain. Ukuran kecil di `EconomicCalendar.jsx` (8px dan 9px) belum disentuh dan menunggu keputusan.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.75 — Risk Guard dan Rekomendasi Lot disamakan dengan standar kartu
+
+Menyentuh `src/CardHeader.jsx`, `src/RiskGuardCard.jsx`, `src/RecommendationCard.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Risk Guard: garis kotak dalam (3 kartu angka, cincin, kotak P/L, catatan) kini biru standar (`INNER_BORDER`), sebelumnya abu-biru netral (`--border-inner`).
+- Risk Guard: garis pembatas kepala kini biru; judul 24px (sebelumnya 22px); subjudul 13px (sebelumnya 11.5px); ikon perisai sama besar dengan ikon kepala kartu lain; ukuran dan jarak lencana status mengikuti lencana kepala kartu lain.
+- Risk Guard: lencana ikon pakai `IconBadge` bersama (ukuran 40, ikon putih; sebelumnya 44 dan putih kebiruan).
+- Biru dan indigo di Risk Guard dan Rekomendasi Lot kini memakai palet `GRAD`; teal (Kerugian bersih tercatat) masuk palet sebagai `GRAD.teal`.
+
+### Tidak berubah
+Garis luar kartu Risk Guard yang berganti hijau/kuning/merah menurut status, warna perisai, cincin, perhitungan, props, dan semua file lain. Variabel `--border-inner` di `tjStyles.js` dibiarkan (tidak lagi dipakai).
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.74 — Keseragaman kode kartu (tanpa perubahan tampilan)
+
+Menyentuh `src/CardHeader.jsx`, `src/StatsCard.jsx`, `src/RecommendationCard.jsx`, `src/TargetSimulator.jsx`, `src/RiskGuardCard.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- `CardHeader.jsx` kini menyimpan satu `IconBadge` (lencana ikon bulat) dan palet `GRAD` (biru, hijau, ungu, merah, indigo) untuk dipakai semua kartu.
+- Salinan `IconBadge` di Statistik, Rekomendasi Lot, dan Simulasi dihapus; semuanya memakai yang bersama. Teks gradien yang sama persis diganti `GRAD.*`.
+- Risk Guard tidak lagi punya salinan `mix`, `s()`, dan `INNER_BG`; memakai yang dari `CardHeader.jsx`.
+
+### Tidak berubah
+Tampilan (hasil render sama persis), perhitungan, state, props, dan semua file lain. `IconBadge` dan gradien Risk Guard sengaja dibiarkan karena ukurannya/warnanya berbeda dan perlu keputusan.
+
+### Pengujian
+Sintaks JSX dicek dengan tsc. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.73 — Perbaikan gagal build Cloudflare (rollup)
+
+Hanya menyentuh `package.json`. Tidak ada file kode yang berubah.
+
+### Masalah
+Build Cloudflare gagal pada `vite build`: modul `@rollup/rollup-linux-x64-gnu` tidak ditemukan. Penyebabnya `bun install` memilih rollup 4.67.2 yang paket Linux-nya dijawab 404 oleh registry npm, sehingga tidak terpasang. Tidak terkait perubahan kartu v1.9.72.
+
+### Perbaikan
+- Menambah `overrides` dan `resolutions` yang mengunci `rollup` ke 4.34.8 (versi lama yang stabil; dipakai Vite 5 lewat `^4.20.0`). `overrides` dibaca npm dan bun, `resolutions` dibaca bun.
+- Versi aplikasi naik ke 1.9.73.
+
+### Tidak berubah
+Semua kode aplikasi dan versi paket lain.
+
+### Catatan
+Kalau repo GitHub sudah punya `bun.lock` atau `package-lock.json`, hapus file itu lalu commit supaya terpasang ulang sesuai kunci baru.
+
+---
+
+## v1.9.72 — Kartu tab Simulasi memakai standar kartu Statistik
+
+Hanya menyentuh `src/TargetSimulator.jsx` (tampilan) dan versi di `package.json`.
+
+### Perubahan
+- Enam kartu di tab Simulasi kini memakai `CardShell` + `CardHeader` (ikon bulat, judul, garis pembatas biru) seperti Statistik: Hasil (Semua Hari Profit), Pertumbuhan Saldo ($), Skenario Target Harian, Milestone, Cek Realita, dan Tabel Harian.
+- Hasil: empat kartu angka 2 x 2 bergaya kartu angka Statistik (ikon berwarna, label, nilai, keterangan).
+- Pertumbuhan Saldo: tombol Skala log bergaya tombol periode (emas saat aktif); garis grid dan sumbu grafik berwarna biru.
+- Tabel: judul kolom biru, ukuran huruf dan jarak ikut lebar kartu sehingga Milestone muat di layar HP tanpa terpotong. Tabel Harian tetap bisa digeser ke samping.
+- Tombol "Tampilkan semua hari" bergaya tombol kartu dalam.
+
+### Tidak berubah
+Perhitungan simulasi, state, penyimpanan, centang status/catatan, ekspor Excel, kartu Pengaturan Asumsi, kotak error, dan semua file lain.
+
+### Pengujian
+Lihat catatan pengujian di balasan. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.71 — Capital Lot Reference: satu kartu dengan tabel, tombol persegi
+
+Hanya menyentuh `src/RecommendationCard.jsx` (tampilan) dan versi di `package.json`.
+
+### Perubahan
+- Tombol CAPITAL LOT REFERENCE dan tabel (Capital, Lot Size, Max Layers) kini berada dalam satu kartu dalam (garis biru, sudut membulat), tetap di dalam kartu utama Rekomendasi Lot — pola yang sama seperti tombol periode + grafik di Statistik.
+- Tabel tidak lagi punya kotak sendiri; langsung di bawah tombol dalam kartu yang sama.
+- Bentuk tombol dari pil penuh menjadi persegi bersudut membulat (radius sama dengan tombol periode Statistik). Panah ChevronUp/ChevronDown tetap.
+
+### Tidak berubah
+Perhitungan, props, state `showRef`/`onToggleRef`, `CAPITAL_LOT_REF_TIERS`, tiga kartu angka, catatan asumsi, aturan sorot baris, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan esbuild dan komponen dirender di Chromium (lebar HP, tema gelap). Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.70 — Tombol periode Statistik: kotak emas, tanpa garis pembatas
+
+Hanya menyentuh `src/StatsCard.jsx` (tampilan) dan versi di `package.json`.
+
+### Perubahan
+- Tombol periode terpilih (HARIAN / MINGGUAN / BULANAN / TAHUNAN) kini kotak emas: garis emas, latar emas transparan, cahaya tipis, label emas. Warna persentase tetap hijau/merah menurut untung-rugi.
+- Garis pembatas vertikal antar tombol dihapus.
+
+### Tidak berubah
+Perhitungan, data grafik, state periode, prop, kartu angka, cincin winrate, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.69 — Tombol periode + grafik Statistik jadi satu kartu
+
+Hanya menyentuh `src/StatsCard.jsx` (tampilan) dan versi di `package.json`.
+
+### Perubahan
+- Baris tombol HARIAN / MINGGUAN / BULANAN / TAHUNAN dan grafik Profit vs Loss kini berada dalam satu kartu dalam (garis biru, sudut membulat) di dalam kartu utama Statistik.
+- Tombol terpilih ditandai kotak hijau transparan dengan garis dan cahaya hijau (sebelumnya emas + garis bawah), seperti gambar acuan.
+- Garis pemisah antar tombol disembunyikan di samping tombol terpilih.
+
+### Tidak berubah
+Perhitungan, data grafik, state periode, prop, kartu angka, cincin winrate, dan semua file lain.
+
+### Pengujian
+Sintaks JSX dicek dengan esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.68 — Grafik Profit vs Loss di kartu Statistik + tombol periode
+
+Menyentuh `src/StatsCard.jsx` (grafik baru) dan `src/TradingJournal.jsx` (satu prop `periodRows` pada `<StatsCard>`), serta versi di `package.json`.
+
+### Tampilan
+- Di bawah baris Harian/Mingguan/Bulanan/Tahunan ditambah grafik kumulatif: area hijau = Profit, garis merah = Loss.
+- Grid putus-putus biru, sumbu Y berformat $, sumbu X berisi tanggal entri (Start sampai entri terakhir, maksimal 5 label).
+- Titik akhir profit diberi penanda bulat dengan lencana nilai total (mis. $30.52).
+- Legenda Profit / Loss di bawah grafik. Sentuh grafik untuk melihat nilai per entri.
+- Grafik hanya muncul jika sudah ada entri. Warna mengikuti tema terang/gelap lewat variabel tema.
+
+### Tombol periode
+Kotak HARIAN / MINGGUAN / BULANAN / TAHUNAN sekarang bisa diketuk dan mengganti periode grafik. Kotak terpilih ditandai warna emas + garis bawah. Default: Bulanan (sama seperti sebelumnya).
+- Harian: entri hari ini; sumbu X jam 00:00-24:00 (memakai jam entri), garis datar sampai 24:00.
+- Mingguan: entri pekan ini, sumbu X tanggal entri.
+- Bulanan: entri bulan aktif, sumbu X tanggal entri.
+- Tahunan: satu titik per bulan pada tahun aktif (total profit & loss bulanan, kumulatif).
+- Periode tanpa entri menampilkan teks "Belum ada entri pada periode ini."
+- Angka persentase di kotak tidak berubah. Datanya memakai himpunan baris yang sama dengan penghitung persentase.
+
+### Data
+Hanya menjumlahkan profit dan loss yang sudah ada di tiap entri (urutan sama dengan grafik Pertumbuhan Saldo). Nilai akhir sama dengan kartu Total Profit. Tidak ada perhitungan statistik yang diubah.
+
+### Pengujian
+Sintaks JSX dicek dengan esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.66 — Perbaikan pita gelap di bawah tab bar (iPhone, setelah mengetik)
+
+Hanya menyentuh `src/viewportGap.js` dan versi di `package.json`.
+
+### Gejala
+Setelah mengetik di kolom input lalu keyboard ditutup, tab bar naik dan muncul pita gelap (warna --bg) di bawahnya.
+
+### Penyebab (dari hasil ukur warna pada tangkapan layar)
+Pita itu berwarna --bg (#0A1628), bukan --surface. Padahal celah bawah biasanya diisi bayangan tab bar berwarna --surface setinggi `--vgap`. Jadi `--vgap` tertinggal 0: dihitung saat keyboard terbuka (selisih tinggi > 120 → 0) dan tidak dihitung ulang karena iOS tidak mengirim event resize saat keyboard ditutup.
+
+### Perbaikan
+- `--vgap` dihitung ulang 4 kali (100/400/900/1600 ms) setelah kolom input kehilangan fokus.
+- `--vgap` juga dihitung ulang saat `visualViewport` berubah ukuran.
+- Rumus dan variabel lain tidak diubah.
+
+### Pengujian
+Sintaks dicek dengan esbuild. Belum diuji di perangkat iPhone nyata.
+
+---
+
+## v1.9.65 — Kartu Asumsi Simulasi mengikuti standar kartu + input bisa titik (.)
+
+Menyentuh `src/TargetSimulator.jsx` (bagian kartu Asumsi), `src/journalMath.js` (satu baris di `parseMoneyInputValue`), dan versi di `package.json`.
+
+### Perubahan tampilan
+- Kartu Asumsi Simulasi kini memakai `CardShell` + `CardHeader` + `HeaderBadge` (sama dengan Statistik / Input Transaksi): latar `--surface-soft` 50% transparan, garis `--border`, kepala berikon bulat, judul 24px, subjudul `--muted`, garis pembatas judul biru.
+- Judul "Pengaturan Asumsi Simulasi" dan subjudul "Atur parameter simulasi sesuai strategi Anda." Tanpa lencana di kanan.
+- 8 kolom jadi kotak 2 kolom bersusun vertikal rata tengah (seperti kartu angka Statistik): ikon di atas, label di bawah ikon, nilai di paling bawah, satuan ($, Rp, %, x) di kanan nilai. Latar/garis kotak memakai INNER_BG / INNER_BORDER.
+- Kotak catatan (ikon info) dan dua tombol pil (Download Excel emas, Reset ke default biru) mengikuti gaya kartu Rekomendasi Lot.
+- Kalender pilih tanggal dirender di `.tj-root` (portal) supaya tidak terpotong kartu; isi dan perilakunya sama.
+
+### Perubahan input
+- Semua kolom `type="text"` dengan `inputMode="decimal"` (keypad iPhone berbahasa Indonesia punya tombol koma). Koma yang diketik otomatis jadi titik.
+- Kolom desimal (Modal Awal, Target Profit Harian, Batas Loss Harian, Jarak SL, Max Layer): titik = desimal, koma otomatis jadi titik, hanya satu titik.
+- Kolom ribuan (Target, Kurs): koma/titik yang diketik diterima lalu diformat otomatis jadi 18.000.000; nilai tersimpan tetap angka murni.
+
+### Perbaikan tambahan
+- Kotak Tanggal Mulai kini selebar dan setinggi kotak lain (sebelumnya menciut mengikuti isi).
+- Kartu Input Transaksi, kolom Profit / Loss / Komisi / WD: koma dari keyboard iPhone kini otomatis jadi titik (`parseMoneyInputValue` mengubah "," jadi "." sebelum membersihkan). Sebelumnya koma dibuang sehingga tidak ada yang muncul.
+
+### Tidak berubah
+Perhitungan simulasi, penyimpanan `sim-settings`, DEFAULTS, ekspor Excel, kartu Hasil/Grafik/Tabel, dan semua file lain.
+
+### Pengujian
+Sintaks JSX lolos dicek dengan esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.63 — Lencana saldo di Rekomendasi Lot + 3 kartu angka vertikal
+
+Hanya menyentuh `src/RecommendationCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Lencana kanan atas kartu Rekomendasi Lot: tombol CAPITAL LOT REF diganti lencana emas berisi saldo saat ini (ikon dompet + angka). Hanya tampilan, bukan tombol. Tombol Capital Lot Reference di bawah tetap membuka/menutup tabel.
+- Kartu Lot / Layer, Max Layer, dan Budget Rugi/Hari: susunan vertikal rata tengah (ikon di atas, label di bawah ikon, angka di paling bawah), sama seperti kartu di Statistik dan Risk Guard. Angka di ketiga kartu sejajar di bawah walau label turun ke dua baris.
+
+### Tidak berubah
+Perhitungan, tabel referensi, kotak Asumsi, peringatan modal kecil, kartu Pertumbuhan Saldo, dan semua file lain.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.62 — Kartu Pertumbuhan Saldo dan Rekomendasi Lot mengikuti standar kartu berjudul
+
+Menyentuh `src/TradingJournal.jsx`, `src/RecommendationCard.jsx` (baru), dan versi di `package.json`.
+
+### Perubahan
+- Pertumbuhan Saldo: memakai CardShell + CardHeader yang sama dengan Statistik dan Input Transaksi (kartu luar, ikon bulat, judul + subjudul, garis pembatas biru). Lencana emas GRAFIK di kanan membuka menu tampilan grafik (Garis / Batang / Area) yang sama seperti sebelumnya; menu titik tiga lama dihapus.
+- Rekomendasi Lot: kartu baru `RecommendationCard.jsx` dengan header standar, lencana CAPITAL LOT REF, tiga kartu angka (Lot / Layer, Max Layer, Budget Rugi/Hari), kotak catatan Asumsi, dan tombol emas Capital Lot Reference. Lencana dan tombol sama-sama membuka/menutup tabel referensi.
+
+### Tidak berubah
+Isi dan perhitungan grafik (tipe garis/batang/area, data, tooltip), computeLotRecommendation, isi tabel Capital Lot Reference, peringatan modal terlalu kecil, serta kartu lain.
+
+### Catatan
+Saldo saat ini tidak lagi tampil di judul kartu Rekomendasi (mengikuti gambar acuan).
+
+### Pengujian
+Sintaks JSX lolos esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.61 — Tabel harian (Simulasi) sinkron dengan transaksi di Jurnal
+
+Menyentuh `src/TradingJournal.jsx`, `src/TargetSimulator.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Status target di Tabel harian (tab Simulasi) terisi otomatis dari transaksi di Jurnal, dicocokkan lewat tanggal.
+  - Hasil harian = profit - loss - komisi (withdraw tidak dihitung), dibandingkan dengan kolom Target 3% pada baris Jurnal tanggal itu.
+  - Hasil >= target: tercapai (lingkaran hijau, centang).
+  - Hasil di bawah target pada tanggal yang sudah lewat: tidak tercapai (lingkaran merah, X).
+  - Tanggal hari ini yang belum capai target dibiarkan kosong karena hari belum selesai.
+  - Transaksi dihapus atau berubah: status otomatis ikut berubah.
+- Koreksi manual tetap bisa dilakukan. Status otomatis hanya diterapkan ulang kalau hasil Jurnal untuk tanggal itu berubah.
+- Kolom "tidak tercapai" kini memakai tanda X merah (bukan kotak centang). Kolom tercapai memakai centang hijau.
+- Teks keterangan di atas tabel diperbarui.
+
+### Tidak berubah
+Perhitungan simulasi, tabel Jurnal, Statistik, Risk Guard, format penyimpanan lama (`sim-progress` hanya ditambah field `auto`).
+
+### Pengujian
+Sintaks JSX lolos esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.60 — Cincin winrate jadi hijau dan merah
+
+Hanya menyentuh `src/StatsCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Cincin winrate: busur porsi menang kini hijau (`--green`), sisa cincin (porsi kalah) merah (`--red`). Sebelumnya emas dan biru.
+- Cahaya (glow) di sekeliling cincin ikut hijau.
+
+### Tidak berubah
+Teks tengah (persen, winrate, 14W - 16L), ukuran cincin, perhitungan, 4 kartu angka, baris persentase, dan semua file lain.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.59 — 4 kartu angka Statistik disusun vertikal seperti Risk Guard
+
+Hanya menyentuh `src/StatsCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Kartu Total Profit, Total Loss, Komisi, dan RR: susunan kini vertikal (ikon di atas, label di bawah ikon, angka di paling bawah), semuanya rata tengah, sama seperti 3 kartu Risk Guard.
+- Angka di tiap baris kartu sejajar di bawah, walau label salah satu kartu turun ke dua baris.
+
+### Tidak berubah
+Ukuran ikon dan angka, warna, garis, cincin winrate, baris persentase, dan semua file lain.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.58 — Garis pemisah bulan aktif diberi jarak dari garis tepi
+
+Hanya menyentuh `src/TradingJournal.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Garis vertikal di tombol terbagi bulan aktif kini garis tersendiri (1px, biru 45%) dengan jarak 9px dari garis tepi atas dan bawah, tidak lagi menyentuh bingkai emas.
+
+### Tidak berubah
+Fungsi sisi kiri (kalender) dan sisi kanan (daftar bulan + arsip), serta semua hal lain.
+
+---
+
+## v1.9.57 — Isi 4 kartu angka Statistik dipusatkan
+
+Hanya menyentuh `src/StatsCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Kartu Total Profit, Total Loss, Komisi, dan RR: ikon + label dan nilai angka kini rata tengah (sama seperti 3 kartu Risk Guard).
+
+### Tidak berubah
+Ukuran, warna, garis, cincin winrate, baris persentase, dan semua file lain.
+
+---
+
+## v1.9.56 — Bulan aktif jadi tombol terbagi (kalender | daftar bulan + arsip)
+
+Menyentuh `src/TradingJournal.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Bulan aktif kini tombol terbagi berbingkai emas, dipisah garis vertikal biru tipis (sama dengan pemisah Harian/Mingguan/Bulanan/Tahunan di Statistik).
+  - Sisi kiri (ikon kalender + nama bulan): buka/tutup kalender bulan aktif.
+  - Sisi kanan (panah): buka daftar bulan.
+- Daftar bulan punya dua bagian: bulan aktif (pilih untuk pindah dan buka kalendernya, titik tiga Arsipkan/Hapus Permanen) dan ARSIP (n) dengan tombol Aktifkan dan Hapus per bulan.
+- Tombol "Arsip (n)" dan panel arsip lama di atas kartu dihapus karena sudah pindah ke daftar ini.
+- Jika semua bulan terarsip (belum ada bulan aktif), daftar arsip tampil di kotak kosong supaya masih bisa diaktifkan kembali.
+
+### Tidak berubah
+Perhitungan, penyimpanan, kalender, Statistik, Perbandingan Antar Bulan, tabel transaksi.
+
+### Pengujian
+Sintaks JSX lolos esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.55 — Bulan aktif (dropdown) dan Bulan Baru pindah ke kartu Input Transaksi
+
+Menyentuh `src/TradingJournal.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Tab bulan di luar kartu dihapus. Di dalam kartu Input Transaksi, di atas tombol Tambah Transaksi, kini ada satu baris: bulan aktif (dropdown, kiri) dan "+ Bulan Baru" (kanan).
+- Bulan aktif: tombol berbingkai emas dengan ikon kalender dan panah. Klik membuka daftar bulan; pilih bulan untuk mengaktifkannya dan kalendernya langsung muncul. Menu titik tiga (Arsipkan / Hapus Permanen) ada di tiap baris daftar.
+- Tambah Transaksi kembali berisi emas penuh, jadi berbeda dari bulan aktif yang berbingkai emas.
+- Form "Start Balance" untuk bulan baru kini muncul di dalam kartu, tepat di bawah baris bulan. Saat belum ada bulan sama sekali, tombol "+ Bulan Baru" tampil di kotak kosong.
+
+### Dikembalikan seperti semula
+- "+ Bulan Baru" (garis putus-putus abu, teks abu).
+- Warna judul kolom dan isi tabel (No, Tanggal, Start, Target, Loss, End Balance).
+- Tombol titik tiga dan menunya.
+
+### Tidak berubah
+Perhitungan, penyimpanan, kalender, Risk Guard, Statistik, Perbandingan Antar Bulan.
+
+### Pengujian
+Sintaks JSX lolos esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.54 — Kartu berjudul distandarkan (ikut Statistik) + kalender dari klik bulan
+
+Menyentuh `src/CardHeader.jsx`, `src/StatsCard.jsx`, `src/TradingJournal.jsx`, dan versi di `package.json`.
+
+### Standar kartu berjudul (acuan: kartu Statistik)
+- `CardHeader.jsx` kini memegang gaya Statistik: kartu luar (garis `--border` 1px, latar `--surface-soft`), ikon bulat, ukuran judul/subjudul/ikon (skala `cqw`), lencana kanan berbingkai emas, dan garis pembatas judul biru.
+- Dipakai oleh Statistik (tampilan tidak berubah), Perbandingan Antar Bulan, dan Input Transaksi.
+- Perbandingan Antar Bulan: tombol GRAFIK memakai gaya lencana PERFORMA; saat terlipat, kepala tanpa garis pembatas.
+
+### Kalender dari klik bulan
+- Klik nama bulan di tab bulan: bulan itu jadi aktif dan kalendernya muncul. Pilih tanggal untuk menentukan tanggal transaksi.
+- Pemilih tanggal dan kalender dihapus dari kartu Input Transaksi. Di bawah tombol Tambah Transaksi tampil teks "Tanggal dipilih: ...".
+- Pesan "Belum ada jurnal untuk bulan ini" kini juga tampil di dalam kalender.
+
+### Tidak berubah
+Perhitungan, penyimpanan, menu titik tiga (Export/Backup/Import), kolom isian, Risk Guard.
+
+### Pengujian
+Sintaks JSX lolos esbuild. Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.53 — Tampilan Perbandingan Antar Bulan & Input Transaksi
+
+Menyentuh `src/CardHeader.jsx` (baru), `src/TradingJournal.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Perbandingan Antar Bulan: kartu bulat dengan garis biru + kilau, ikon bulat, judul, subjudul biru, dan tombol GRAFIK (garis emas) untuk buka/tutup grafik dan tabel.
+- Tab bulan: bulan aktif berbingkai emas dengan ikon kalender; "+ Bulan Baru" garis putus-putus biru.
+- Input Transaksi: kepala kartu (ikon daftar, judul, subjudul), tombol titik tiga bulat, tombol "Tambah Transaksi" selebar kartu berbingkai emas.
+- Tabel transaksi: tiap baris jadi kartu bulat berbingkai biru, tanggal dengan ikon kalender, judul kolom biru.
+
+### Tidak berubah
+Semua perhitungan, penyimpanan, menu titik tiga (Export/Backup/Import), kalender pilih tanggal, kolom isian, Risk Guard, Statistik.
+Catatan: sel Tanggal tidak lagi digabung (rowSpan); tanggal tampil di setiap baris.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.52 — Tampilan Statistik baru
+
+Menyentuh `src/StatsCard.jsx` (baru), `src/TradingJournal.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Kartu Statistik diganti mengikuti gambar acuan: header (ikon, judul, subjudul, lencana PERFORMA), cincin winrate (busur emas = porsi menang, sisa biru) dengan 14W - 16L di tengah, empat kartu angka (Total Profit, Total Loss, Komisi, RR), dan baris persentase Harian/Mingguan/Bulanan/Tahunan.
+- Ukuran mengikuti lebar kartu (`cqw`), sama seperti Risk Guard. Teks dan latar memakai variabel tema.
+- Di `TradingJournal.jsx`, blok Statistik lama (2 mode) diganti satu baris `<StatsCard stats=... growth=... />` plus satu baris import.
+
+### Tidak berubah
+`computeStats`, perhitungan persentase periode, `journalMath.js`, Risk Guard, dan semua file lain. State/penyimpanan `tj-stats-style` tidak disentuh (tidak lagi dipakai tampilan).
+
+### Pengujian
+Lihat catatan di pesan serah-terima.
+
+---
+
+## v1.9.51 — Garis kotak dalam Risk Guard lebih tegas di tema terang
+
+Menyentuh `src/RiskGuardCard.jsx`, `src/tjStyles.js`, dan versi di `package.json`.
+
+### Perubahan
+- Variabel baru `--border-inner` untuk garis kotak dalam (3 kartu angka, cincin, kotak P/L, catatan).
+- Tema terang: `--border-inner` = 20% warna teks dicampur ke `--border` (abu-biru sedikit lebih gelap, tetap netral). Ketebalan tetap 1px.
+- Tema gelap: `--border-inner` = `--border`, tampilan tidak berubah.
+
+### Tidak berubah
+Garis kuning/hijau/merah kartu luar, garis pemisah header, jalur cincin dan bilah, `computeDailyRiskGuard`, dan semua file lain.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata.
+
+---
+
+## v1.9.50 — Lencana status Risk Guard: isi 15%, garis 1.5px
+
+Hanya menyentuh `src/RiskGuardCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Lencana status: isi 15% (sebelumnya 18%), garis kembali 1.5px (sebelumnya 2px) supaya sama dengan garis kartu.
+
+### Tidak berubah
+Garis kartu hijau/kuning/merah (1.5px) dan semua hal lain.
+
+---
+
+## v1.9.49 — Garis status hijau Risk Guard lebih terlihat
+
+Hanya menyentuh `src/RiskGuardCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Status AMAN: garis kartu kini hijau (sebelumnya abu `--border`), tebal 1.5px, sama seperti WASPADA (kuning) dan BATAS TERCAPAI (merah). BELUM ADA MODAL tetap garis biasa.
+- Lencana status: garis 2px (sebelumnya 1.5px) dan isi sedikit lebih pekat (18%).
+
+### Tidak berubah
+Semua hal lain.
+
+---
+
+## v1.9.48 — Risk Guard ikut tema, latar tipis, isi 3 kartu di tengah
+
+Hanya menyentuh `src/RiskGuardCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Latar kartu kini `var(--surface-soft)` (50% transparan), sama seperti kartu lain. Kotak-kotak di dalamnya juga tipis (`--surface-raised` 55%).
+- Semua warna (teks, garis, cincin, bilah, lencana status) memakai variabel tema, jadi kartu berganti terang/gelap bersama aplikasi. Tidak lagi navy tetap.
+- Isi tiga kartu angka (Batas rugi harian, Kerugian bersih tercatat, Sisa batas): ikon, label, dan nilai dipusatkan.
+
+### Tidak berubah
+`computeDailyRiskGuard`, batas 4%, semua angka, susunan horizontal di HP, ukuran berbasis `cqw`, dan file lain.
+
+### Pengujian
+Belum diuji build Vite penuh dan perangkat nyata. `color-mix` sudah dipakai di bagian lain aplikasi (Safari iOS 16.2+ / Chrome 111+).
+
+---
+
+## v1.9.47 — Risk Guard tetap horizontal di HP
+
+Hanya menyentuh `src/RiskGuardCard.jsx` dan versi di `package.json`.
+
+### Perubahan
+- Susunan kartu kini sama di semua lebar layar: cincin di kiri, tiga kartu angka di kanan, baris P/L di bawahnya, lalu catatan. Sebelumnya di HP cincin pindah ke atas dan kartu angka turun.
+- Semua ukuran (font, ikon, cincin, padding) mengikuti lebar kartu lewat container query unit `cqw`, dengan batas atas = ukuran lama dan batas bawah supaya teks tetap terbaca.
+- Header (judul + lencana status) tetap satu baris.
+
+### Tidak berubah
+`computeDailyRiskGuard`, batas 4%, semua angka, warna status, dan file lain.
+
+### Pengujian
+Dirender dengan data untuk empat kondisi (aman, waspada, batas tercapai, belum ada modal) pada lebar 320/360/390/1000 px: tidak ada overflow horizontal dan angka tidak terpotong.
+Belum diuji: build Vite penuh dan perangkat nyata. `cqw` butuh Chrome/Android WebView 105+ atau Safari iOS 16+.
+
+---
+
+## v1.9.46 — Tampilan Risk Guard baru
+
+Dibangun di atas v1.9.45 (termasuk perbaikan AI News/Forex Factory di dalamnya).
+
+### Perubahan
+- File baru `src/RiskGuardCard.jsx`: kartu Risk Guard bergaya biru-navy dengan cincin indikator, tiga kartu angka (Batas rugi harian, Kerugian bersih tercatat, Sisa batas), baris P/L hari ini dengan bilah progres, dan catatan di bawah.
+- `src/TradingJournal.jsx`: blok Risk Guard lama diganti `<RiskGuardCard riskGuard={riskGuard} />` plus satu baris import.
+
+### Tidak berubah
+`computeDailyRiskGuard`, batas 4%, dan semua angka. `src/journalMath.js` identik dengan versi sebelumnya. Hanya tampilan yang berganti.
+
+### Perilaku tampilan
+- Cincin menunjukkan SISA batas: penuh saat 0% terpakai, mengecil saat rugi bertambah, kosong saat batas tercapai.
+- Warna mengikuti status: AMAN hijau, WASPADA (>=75%) kuning, BATAS TERCAPAI (>=100%) merah, BELUM ADA MODAL abu-biru.
+- Responsif: di HP cincin berada di atas kartu angka; di layar lebar cincin di kiri seperti gambar acuan.
+- Kartu selalu berlatar biru-navy (tidak berubah mengikuti tema terang/gelap).
+
+### Yang sengaja tidak dibawa dari gambar acuan
+- Tombol "..." di kanan atas (tidak punya fungsi di aplikasi).
+- Tulisan "· 4%" pada label Batas rugi harian (gambar acuan tidak memilikinya).
+
+### Pengujian
+Dirender dengan data dari fungsi hitung yang asli untuk lima kondisi (aman, waspada, batas tercapai, belum ada transaksi, belum ada modal) pada lebar 320/360/390/1000 px; tidak ada overflow horizontal.
+Belum diuji: build Vite penuh dan tampilan di perangkat nyata.
+
+---
+
+## v1.9.45 — AI News: tahan terhadap HTTP 429 dari Forex Factory
+
+Menyentuh `worker/ai-news-worker.js`, `src/EconomicCalendar.jsx` (satu catatan kaki), dan versi di `package.json`.
+
+### Temuan
+`nfs.faireconomy.media` hidup tetapi membalas HTTP 429 (pembatasan per IP) ke Worker; `cdn-nfs.faireconomy.media` mati (1016).
+
+### Perubahan
+- Setelah 429, Worker menunggu 15 menit (bukan 2 menit) sebelum mencoba lagi dan tidak lagi mencoba alamat kedua pada putaran yang sama.
+- Salinan terakhir yang berhasil dipakai hingga 3 hari (sebelumnya 12 jam); `enrichment.fetchedAt` menunjukkan umurnya dan kalender memberi catatan jika angka FF berasal dari salinan lama.
+- Perilaku lain tidak berubah.
+
+### Belum terverifikasi
+Apakah pembatasan 429 hanya sementara. Jika 429 terus berulang, sumber ini tidak bisa dipakai dari Cloudflare Worker.
+
+---
+
+## v1.9.44 — AI News: beberapa alamat feed Forex Factory
+
+Hanya `worker/ai-news-worker.js` dan versi di `package.json`.
+
+### Masalah
+Alamat feed `cdn-nfs.faireconomy.media` membalas HTTP 530 (error 1016: origin DNS tidak ditemukan), sehingga Forecast/Previous tidak pernah terisi.
+
+### Perubahan
+- Worker mencoba beberapa alamat berurutan (`nfs.faireconomy.media`, lalu `cdn-nfs.faireconomy.media`) untuk tiap file minggu ini dan minggu depan.
+- Jika semua gagal, `enrichment.warning` memuat alasan tiap alamat; `enrichment.host` menunjukkan alamat yang berhasil.
+- Perilaku lain tidak berubah.
+
+### Belum terverifikasi
+Apakah `nfs.faireconomy.media` aktif dan menerima permintaan dari Cloudflare Worker.
+
+---
+
+## v1.9.43 — AI News: alasan kegagalan Forex Factory terlihat
+
+Hanya `worker/ai-news-worker.js` dan versi di `package.json`.
+
+### Masalah
+Saat Forex Factory gagal, `enrichment.warning` hanya berisi pesan jeda, sehingga penyebab asli (mis. HTTP 403/429) tidak terlihat.
+
+### Perubahan
+- Alasan kegagalan asli (status HTTP dan potongan isi balasan hingga 120 karakter) disimpan bersama jeda 2 menit dan ditampilkan di `enrichment.warning`.
+- Perilaku lain tidak berubah.
+
+---
+
+## v1.9.42 — AI News: Forecast & Previous dari Forex Factory
+
+Menyentuh: `worker/ai-news-worker.js`, `src/EconomicCalendar.jsx`, `src/AINews.jsx`, versi di `package.json`.
+Tidak menyentuh jurnal, RiskGuard, lot sizing, Supabase, atau secret.
+
+### Latar belakang
+Data XOOMAR untuk event seperti Nonfarm Payrolls berisi `previous`, `forecast`, dan `actual` bernilai `null` (sumber `bls` = jadwal resmi, bukan konsensus). Tampilan "—" benar; sumbernya yang kosong.
+
+### Perubahan
+- Worker mengambil feed JSON gratis Forex Factory (USD saja), menyimpannya di KV (`cache:ff`, segar 30 menit, dipakai hingga 12 jam jika sumber gagal), dan menjeda 2 menit setelah kegagalan agar tidak membanjiri sumber.
+- Event dicocokkan lewat waktu (±10 menit) dan nama (token yang dinormalkan: NFP, CPI, PCE, m/m, y/y, Core). Jika ada dua kandidat setara, tidak ada yang dipilih (lebih aman kosong daripada salah).
+- Hanya nilai yang kosong dari XOOMAR yang diisi. Nilai dari Forex Factory ditandai "FF" dan ditampilkan apa adanya (mis. "200K"), tanpa dikarang atau dihitung ulang.
+- Actual tetap dari XOOMAR (feed mingguan Forex Factory tidak memuat actual). Jika suatu saat feed memuatnya, nilai itu dipakai hanya bila XOOMAR kosong.
+- `/api/ai-news/events` menambah field `enrichment` (status, jumlah cocok, daftar event yang tidak cocok).
+- Kalender kini membaca dari Worker; jika Worker gagal, kembali ke XOOMAR langsung seperti sebelumnya.
+- Daftar Analisis menampilkan baris "Prev · Fcst · Act" per rilis. Forecast dan Previous ikut dikirim ke AI.
+
+### Batasan
+- Feed Forex Factory hanya mencakup minggu berjalan (minggu depan dicoba, belum terverifikasi). Event yang masih jauh tetap "—" sampai minggunya tiba.
+- Feed tidak resmi dan dibatasi per IP; jika menolak alamat Cloudflare, Forecast kosong dan kalender tetap berjalan.
+
+### Pengujian lokal (data tiruan)
+NFP terisi 200K/236K, CPI m/m tidak tertukar dengan y/y, Core CPI cocok, nama ambigu dibiarkan kosong, baris EUR diabaikan, cache tidak memanggil ulang, 429 + cache lama memakai angka lama, tanpa cache kalender tetap tampil. Pengujian Web Push, cache kalender, dan kunci API tetap lulus.
+
+### Belum terverifikasi
+Feed Forex Factory nyata dari Cloudflare, dan seberapa banyak nama event XOOMAR yang cocok dengan nama Forex Factory (lihat `enrichment.unmatched`).
+
+---
+
+## v1.9.41 — AI News: kalender ringkas dan analisis inline
+
+- Kalender ekonomi hanya menampilkan High Impact dan Medium Impact.
+- Urutan konsisten: High Impact terlebih dahulu, kemudian Medium Impact; masing-masing diurutkan menurut waktu rilis.
+- Kartu kalender menampilkan Previous, Forecast, dan Actual. Forecast hanya diisi jika disediakan sumber; nilai yang tidak tersedia tetap ditampilkan sebagai tanda pisah.
+- Analisis fundamental terbuka tepat di bawah kartu rilis yang dipilih dan dapat ditutup kembali.
+- Daftar analisis hanya menampilkan rilis High dan Medium Impact, dengan High di atas Medium.
+- Tidak mengubah rumus RiskGuard, jurnal, lot sizing, atau pengaturan backend secrets.
+
+---
+
+## v1.9.40 — AI News: diagnostik tes notifikasi
+
+- `/test-push` kini mengembalikan `providerStatus`, `providerHost`, dan isi error dari layanan push; tag notifikasi tes unik agar tidak digabung dengan tes sebelumnya.
+- Tombol tes menampilkan ringkasan diagnostik: izin notifikasi, mode standalone, status service worker, host langganan.
+
+---
+
+## v1.9.39 — AI News: tombol tes notifikasi
+
+Menyentuh `worker/ai-news-worker.js`, `src/AINews.jsx`, versi di `package.json`.
+
+### Perubahan
+- Endpoint baru `POST /api/ai-news/test-push`: mengirim satu push tes hanya ke perangkat pemanggil (berdasarkan endpoint langganannya). Hanya POST, jadi membuka alamatnya di browser tetap "Not found".
+- Cooldown 1 menit per perangkat (kunci KV `cooldown:test:*`). Langganan kedaluwarsa (404/410) dihapus otomatis.
+- Tombol "Kirim notifikasi tes" muncul di UI setelah perangkat terdaftar.
+
+### Belum terverifikasi
+Pengiriman nyata ke perangkat (perlu deploy dan HP).
+
+---
+
+## v1.9.38 — AI News: dukungan kunci API XOOMAR
+
+Hanya menyentuh `worker/ai-news-worker.js` dan versi di `package.json`.
+
+### Masalah
+Tanpa kunci, XOOMAR membatasi 30 permintaan per menit per IP. Worker Cloudflare keluar lewat IP bersama, sehingga permintaan kalender bisa ditolak dengan HTTP 429. Kunci gratis menaikkan batas menjadi 120 per menit.
+
+### Perubahan
+- Worker membaca secret opsional `XOOMAR_API_KEY` dan mengirimnya ke XOOMAR.
+- Cara pengiriman diatur lewat variabel opsional `XOOMAR_KEY_MODE` (tanpa ubah kode):
+  - kosong atau `x-api-key` (bawaan): header `x-api-key`
+  - `Bearer`: header `Authorization: Bearer ...`
+  - `query:NAMA`: parameter di alamat, mis. `query:api_key`
+  - nama header lain, mis. `X-Xoomar-Key`
+- `/api/ai-news/health` menampilkan `calendarKey:true/false` (kunci tidak pernah ditampilkan).
+- Jika XOOMAR membalas 401/403, pesan error menyarankan memeriksa `XOOMAR_API_KEY` dan `XOOMAR_KEY_MODE`.
+
+### Belum terverifikasi
+Format pengiriman kunci yang diterima XOOMAR (dokumentasi tidak dapat dibuka dari lingkungan kerja). Bawaan `x-api-key` adalah tebakan paling umum; jika ditolak, ubah `XOOMAR_KEY_MODE`.
+
+---
+
+## v1.9.37 — AI News: perbaikan Calendar HTTP 429
+
+Hanya menyentuh `worker/ai-news-worker.js` dan versi di `package.json`.
+
+### Masalah
+Cron memanggil XOOMAR setiap menit (sekitar 1.440 kali per hari), sehingga provider membalas HTTP 429 dan `lastRun` berstatus error.
+
+### Perubahan
+- Kalender disimpan di KV (`cache:calendar`) selama 10 menit. Cron dan `/api/ai-news/events` memakai salinan itu, sehingga XOOMAR hanya dipanggil sekitar sekali per 10 menit.
+- Jika XOOMAR gagal (termasuk 429) tetapi ada salinan yang umurnya di bawah 6 jam, salinan lama dipakai. Status `lastRun` tetap `ok` dengan `calendar:"stale"` dan field `warning`.
+- Penulisan `meta:last-run` dibatasi (maksimal sekali per 5 menit jika statusnya sama), agar tidak melewati batas 1.000 penulisan KV per hari pada paket gratis.
+- Header `user-agent` ditambahkan pada permintaan ke XOOMAR.
+
+### Pengujian lokal
+429 tanpa cache tercatat sebagai error tanpa crash; error berulang hanya menulis last-run sekali; run berikutnya memakai cache (0 panggilan ke XOOMAR); 429 dengan cache lama memakai cache dan `/events` tidak 502. Seluruh pengujian Web Push sebelumnya tetap lulus.
+
+### Belum terverifikasi
+Apakah XOOMAR memblokir permintaan dari IP Cloudflare secara permanen. Jika 429 tetap muncul pada panggilan pertama setelah deploy, perlu sumber kalender alternatif.
+
+---
+
+## v1.9.36 — AI News hardening (dari v1.9.35 PATCH2)
+
+Hanya menyentuh AI News: `worker/ai-news-worker.js`, `wrangler.jsonc`, `package.json` (versi). Journal, RiskGuard, Supabase, dan UI lain tidak diubah.
+
+### Perubahan
+- `wrangler.jsonc`: tambah `run_worker_first: ["/api/*"]` agar `/api/ai-news/*` selalu dijawab Worker. Tanpa ini, membuka `/api/ai-news/health` di browser bisa menampilkan halaman SPA, bukan JSON.
+- `VAPID_SUBJECT` sekarang wajib (tidak ada lagi fallback `mailto:admin@example.com`, yang bisa ditolak Apple). `/health` melaporkan `push:true` hanya jika ketiga secret VAPID ada.
+- `/subscribe` hanya menerima endpoint dari layanan push resmi (Google/FCM, Mozilla, Apple, Windows) dan menolak Origin asing pada request POST. CORS `*` dihapus karena aplikasi dan API satu origin.
+- `/alerts` membaca satu indeks ringkas (`meta:recent`, maks 30) alih-alih membaca hingga 1000 key KV, agar tidak kena batas subrequest.
+- Teks pengingat memakai sisa menit yang sebenarnya jika terkirim terlambat (jendela pemulihan 5 menit).
+- Pemeriksaan dampak tinggi dibuat eksplisit (`high`/`3`).
+
+### Pengujian lokal (Node 22, mock KV dan mock fetch)
+Subscribe valid/invalid, Origin asing ditolak, VAPID JWT terverifikasi, payload Web Push (aes128gcm) berhasil didekripsi seperti browser, cron mengirim 1 push, run kedua tidak duplikat, event dampak rendah diabaikan.
+
+### Belum diverifikasi (butuh akun Cloudflare dan perangkat)
+Build Vite penuh, Workers AI nyata, KV nyata, pengiriman ke iPhone, dan payload asli XOOMAR (tidak ada field negara, jadi alert dampak tinggi bisa mencakup non-AS).
+
+### Deploy
+1. Secret: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mis. `mailto:emailanda@domain.com`).
+2. Pastikan ID KV di `wrangler.jsonc` benar dan Workers AI aktif.
+3. Setelah deploy, buka `/api/ai-news/health`: harus `scheduler:true`, `ai:true`, `push:true`.
+4. Di iPhone: buka dari ikon Home Screen, tekan "Aktifkan notifikasi".
+
+---
+
+## Tahap awal AI News (tanpa nomor versi)
+
+### v1.9.34 — AI News integrated package
+
+- Added a Worker entrypoint to the same Wrangler static-assets project so frontend routes and backend APIs can share one deployment when the Cloudflare Git integration honors `wrangler.jsonc`.
+- Added health/events/analysis/push subscription/alerts endpoints.
+- Added Workers AI analysis endpoint with explicit anti-hallucination constraints and no invented consensus or live gold reaction.
+- Added Cron scheduler for H-30 and H-5 reminders and KV-based idempotency markers.
+- Added Web Push subscription UI and service worker notification/click handlers.
+- Kept the existing XOOMAR calendar view and RiskGuard/journal math intact.
+
+Validation status:
+- Source/ZIP integrity and Worker JavaScript syntax can be checked locally.
+- A full Vite production build and real Cloudflare/AI/KV/Web Push end-to-end test are not claimed unless separately run with dependencies, account bindings, and real device.
+- Production requires a real KV namespace ID and VAPID secrets. Do not commit private keys.
+
+#### AI News reliability patch (pre-deployment)
+- Scheduler retries failed/incomplete push deliveries for up to 3 attempts while the event reminder remains within a 5-minute recovery window.
+- Successfully delivered subscriptions are recorded per reminder and skipped on retries, avoiding duplicate push messages to devices that already received them.
+- The event eligibility window now permits recovery for up to 5 minutes after the scheduled event time, matching the documented recovery window.
+- Successfully processed reminders remain idempotent and are not sent again by Cron retries.
+- This patch is limited to `worker/ai-news-worker.js`; journal, RiskGuard, Supabase schema, and unrelated UI logic are unchanged.
+- Validation performed: Node syntax checks for the Worker and service worker, plus ZIP integrity. Live XOOMAR, Cloudflare KV/Workers AI, Web Push, and production build remain unverified until network/dependencies and account configuration are available.
+
+### TraderLogs v1.9.29 — AI News Stage 1
+
+#### Added
+- Added an isolated AI News XAU/USD page and a new bottom navigation item.
+- Added clear, non-live status cards describing planned calendar, AI analysis, push notifications, and Risk Awareness capabilities.
+- Documented that the AI News page is a foundation only; it does not claim to fetch live news, run AI analysis, or send notifications yet.
+
+#### Preserved
+- Existing journal, simulator, chart, and embedded economic calendar components.
+- Existing Risk Guard calculation logic and settings. `src/journalMath.js` was not changed.
+- Existing Supabase storage and authentication implementation.
+
+#### Not included yet
+- No server-side scheduler or push-notification backend.
+- No AI provider integration or API keys.
+- No new Supabase tables or schema changes.
+
+#### Validation
+- Source changes were inspected and the Risk Guard math file was left unchanged.
+- A production build could not be run in this environment because `npm install` timed out before Vite dependencies were available. Run `npm install` and `npm run build` locally before deployment.
+
+### TraderLogs v1.9.30 — AI News Stage 2
+
+#### Perubahan
+- Menghubungkan komponen kalender ekonomi yang sudah ada ke halaman AI News.
+- Mempertahankan kalender lama di Chart → Berita.
+- Menjelaskan bahwa kalender memperbarui data ketika halaman terbuka, bukan melalui scheduler server.
+- Mempertahankan penjelasan bahwa analisis AI dan push notification belum aktif.
+- Tidak mengubah `src/journalMath.js` atau skema Supabase.
+
+#### Batasan yang diketahui
+- Sumber kalender: XOOMAR (`https://xoomar.com/api/markets/calendar`).
+- Sumber ini tidak menyediakan forecast konsensus pada integrasi yang ada. Jangan menyimpulkan actual-vs-forecast jika forecast tidak tersedia.
+- Refresh berkala masih bergantung pada halaman browser yang terbuka. Pengingat saat aplikasi tertutup membutuhkan layanan server-side terpisah pada tahap berikutnya.
+
+#### Pemeriksaan
+- ZIP integrity: akan diperiksa setelah arsip dibuat.
+- Build produksi: belum diverifikasi bila dependensi npm tidak tersedia dalam lingkungan kerja.
+
+### TraderLogs AI News — Stage 3 (Scheduler foundation)
+
+#### Included
+- Separate Cloudflare Worker entrypoint at `worker/ai-news-worker.js`.
+- Cron Trigger configured for once per minute.
+- Fetches the existing XOOMAR calendar source from the server, not from the user's open browser.
+- Filters high-impact events and a focused list of gold-relevant US releases.
+- Queues reminder records for 30 minutes and 5 minutes before release.
+- Uses KV idempotency keys to avoid duplicate queued reminders.
+- Read-only endpoints: `/health`, `/api/status`, `/api/alerts?limit=20`.
+- Keeps the main TraderLogs `wrangler.jsonc`, journal math, and Supabase schema unchanged.
+
+#### Important Stage 3 boundary
+This stage queues reminder records only. It does **not** send push notifications to phones yet; push subscription and delivery are Stage 4. The worker must be deployed separately and configured with a real KV namespace ID and the exact deployed TraderLogs origin before it can run.
+
+#### Deployment
+1. Install project dependencies in the extracted project folder: `npm install`.
+2. Create a KV namespace: `npx wrangler kv namespace create ALERTS_KV`.
+3. Copy the returned namespace ID into `wrangler.ai-news.jsonc` replacing `REPLACE_WITH_KV_NAMESPACE_ID`.
+4. Replace `https://REPLACE_WITH_YOUR_TRADERLOGS_DOMAIN` with the exact production origin (scheme + host, no trailing slash).
+5. Deploy from the project folder: `npx wrangler deploy --config wrangler.ai-news.jsonc`.
+6. Open the Worker URL plus `/health`; then `/api/status`. The first Cron run can take up to about a minute.
+7. Do not call the stage complete until the health endpoint, successful Cron run, and queued reminder test are verified.
+
+#### Limits and safety
+- Provider event names/importance values may change; inspect live provider payloads before relying on filtering.
+- Provider schedules can be corrected or cancelled. This stage does not yet reconcile previously queued alerts after schedule changes; improve this before push delivery.
+- Calendar provider is external and may be stale or unavailable.
+- No consensus forecast is fabricated. AI analysis is not part of this stage.
+- No trades, lot sizes, stop loss, daily risk cap, or journal entries are modified.
+- Do not put API keys, Supabase service-role keys, or other secrets in frontend files or this config.
