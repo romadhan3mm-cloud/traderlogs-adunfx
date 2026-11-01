@@ -6,6 +6,186 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.101 — Rincian per tag di Statistik Setup tidak lagi berbentuk kartu
+
+Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx` (gaya baris per tag), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Baris per tag (Pullback, Breakout, Reversal, Tanpa setup) kini baris polos: tanpa latar `INNER_BG`, tanpa garis kotak, tanpa radius. Antar baris dipisah garis tipis `1px solid var(--border)`.
+- Isi baris (nama tag, jumlah hari, persentase menang, hasil bersih), warna, ukuran font, dan urutan tidak berubah.
+
+### Perbaikan catatan
+- Entri v1.9.89–v1.9.100 yang sebelumnya berupa 12 file `CHANGELOG_*.md` terpisah digabung ke bagian atas file ini, sesuai aturan satu file. File terpisah dihapus; isinya dipindah apa adanya (hanya level judul disesuaikan).
+
+### Tidak berubah
+Hitungan (`computeSetupStats`), data, dua kotak ringkasan "Sesuai setup" dan "Tanpa setup", tombol STATISTIK SETUP, baris ringkasan terlipat, dan semua file lain.
+
+### Pengujian
+Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
+## v1.9.100 — Statistik Setup masuk ke dalam kartu Input Transaksi
+
+- Statistik Setup tidak lagi kartu terpisah. Sekarang kartu dalam di bawah tabel Input Transaksi, dengan tombol emas "STATISTIK SETUP" seperti Capital Lot Reference di kartu Rekomendasi Lot.
+- Terlipat bawaan, dengan satu baris ringkasan di bawah tombol. Ketuk tombol untuk membuka rincian per tag.
+- File `SetupStatsCard.jsx` diganti `SetupStatsSection.jsx`. Hitungan dan data tidak berubah.
+
+---
+
+## v1.9.99 — Statistik Setup dipindah dan dibuat terlipat
+
+- Kartu Statistik Setup sekarang tepat di bawah kartu Input Transaksi (sebelumnya di bawah kartu Statistik).
+- Terlipat bawaan: tinggal satu baris ringkasan ("Sesuai setup +$... · Tanpa setup -$..."). Ketuk RINCIAN untuk membuka rincian per tag.
+- Tidak ada perubahan hitungan atau data.
+
+---
+
+## v1.9.98 — Tag setup dan checklist sebelum entry
+
+Baru
+- Tombol Tambah Transaksi membuka dialog "Sebelum entry": pilih tag setup, lalu centang checklist.
+  Kalau tag "Tanpa setup" dipilih atau checklist belum lengkap, muncul peringatan; menekan tombol sekali lagi ("Tetap lanjut") tetap mencatat apa adanya. Jurnal tidak memblokir pencatatan jujur.
+- Tag disimpan di data per hari (field `setup`). Bisa diganti kapan saja lewat tulisan kecil di bawah tanggal pada tabel (entri lama tampil "Tag?").
+- Kartu baru "Statistik Setup" di bawah kartu Statistik: hasil bersih (profit - loss - komisi) dan persentase hari menang untuk "Sesuai setup" vs "Tanpa setup", plus rincian per tag. Dihitung dari semua bulan; entri tanpa tag tidak ikut dihitung.
+- `src/setupConfig.js`: daftar tag dan isi checklist. Mau ganti nama tag atau isi checklist cukup ubah file ini (id tag yang sudah dipakai jangan diubah).
+- Tes baru `tests/setupConfig.test.mjs` (hitungan dicek tangan).
+
+Tidak diubah: logic hitung saldo, Risk Guard, penyimpanan, dan backup. Field `setup` otomatis ikut ekspor/impor backup.
+
+---
+
+## v1.9.97 — Hapus overlay debug
+
+- Overlay diagnosis layar (dibuka lewat ?debug=1 atau ketuk footer 5 kali) dihapus dari `src/viewportGap.js` dan `src/main.jsx`.
+- `installViewportGap` (penyesuaian celah layar iPhone) dan `barFadeBg` tidak diubah.
+
+---
+
+## v1.9.96 — Konfirmasi sebelum hapus transaksi
+
+- Ikon tempat sampah di baris transaksi sekarang membuka dialog "Hapus transaksi?" (menampilkan tanggalnya) dengan tombol Ya, Hapus dan Batal.
+- Mengetuk area gelap di luar dialog sama dengan Batal.
+- Logic penghapusan (`deleteEntry`) dan penyimpanan tidak diubah.
+- Perubahan hanya di `src/TradingJournal.jsx`.
+
+---
+
+## v1.9.95 — Fade tepi bawah header dibuat sedang
+
+- Tinggi fade tepi bawah header: 32 px menjadi 20 px (tidak berlebihan), tetap bertahap tanpa garis tegas.
+- Blur, warna, logic, dan struktur tidak diubah.
+- Satu-satunya perubahan kode: `.tj-hdr::before` di `src/tjStyles.js`.
+
+---
+
+## v1.9.94 — Tepi bawah header memudar lebih halus
+
+- Tinggi fade tepi bawah header: 12 px menjadi 32 px.
+- Gradasi dibuat bertahap (9 titik, melambat di ujung) supaya tidak ada garis tegas.
+- Blur (`--glass-blur`), warna, logic, dan struktur tidak diubah.
+- Satu-satunya perubahan kode: `.tj-hdr::before` di `src/tjStyles.js`.
+
+---
+
+## v1.9.93 — Satu pengaturan blur untuk kartu dan header
+
+Menyentuh `src/tjStyles.js`, `src/CardHeader.jsx`, `src/TargetSimulator.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Variabel baru `--glass-blur: 6px` (di `tjStyles.js`) dipakai oleh blur kartu (`GlassLayer`), kotak error Simulasi, dan header. Cukup ubah satu angka untuk mengubah semuanya.
+- Blur header turun dari 8px ke 6px agar sama dengan kartu.
+
+### Tidak berubah
+Blur kartu (tetap 6px), latar tint dan gradien header, perilaku header yang hanya buram saat halaman digulir, tab bar bawah (solid, tanpa blur), dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Belum diuji tampilan di HP (terutama keterbacaan header saat isi bergulir di bawahnya).
+
+---
+
+## v1.9.92 — Grafik Growth % per Bulan disamakan dengan Pertumbuhan Saldo
+
+Hanya menyentuh `src/TradingJournal.jsx` (grafik Growth % per Bulan di kartu Perbandingan) dan versi di `package.json`.
+
+### Perubahan
+- Ditambah garis vertikal (sumbu Y) yang jelas, sama dengan grafik Pertumbuhan Saldo (sebelumnya tidak ada).
+- Garis horizontal paling bawah (sumbu X) kini solid dan sama jelasnya; garis grid putus-putus paling bawah tidak digambar lagi (memakai `gridWithoutBottom` dari v1.9.91).
+- Garis acuan 0% kini solid dengan warna sumbu (sebelumnya putus-putus). Bila semua bulan positif, garis ini berimpit dengan sumbu bawah sehingga tidak terlihat putus-putus; bila ada bulan negatif, ia menjadi garis dasar 0%.
+
+### Tidak berubah
+Data, batang dan warnanya, tooltip, grid horizontal lain (tetap putus-putus), dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Sintaks JSX dicek dengan tsc. Belum diuji tampilan di HP.
+
+---
+
+## v1.9.91 — Garis paling bawah grafik Pertumbuhan Saldo tidak putus-putus
+
+Menyentuh `src/TradingJournal.jsx`, `src/chartUtils.js` (baru), `tests/chartUtils.test.mjs` (baru), dan versi di `package.json`.
+
+### Masalah
+Garis grid horizontal paling bawah berimpit dengan sumbu X. Grid berupa garis putus-putus, sehingga garis bawah terlihat putus-putus walau sumbu X sudah solid.
+
+### Perubahan
+- Pada ketiga tampilan grafik Pertumbuhan Saldo (Garis, Batang, Area), garis grid paling bawah tidak digambar lagi; yang terlihat hanya sumbu X yang solid, sama seperti sumbu Y.
+- Penentuan "garis paling bawah" ada di `isBottomGridLine` (`src/chartUtils.js`, fungsi murni, 3 tes baru). Bila data dari recharts tidak lengkap, garis tetap digambar seperti sebelumnya.
+
+### Tidak berubah
+Garis grid lain (tetap putus-putus), data grafik, grafik Perbandingan Bulan, dan semua file lain.
+
+### Pengujian
+`npm test`: 30 tes lulus. Sintaks JSX dicek dengan tsc. Belum diuji tampilan di HP (recharts tidak terpasang di lingkungan ini).
+
+---
+
+## v1.9.90 — Tes otomatis, pembatas permintaan Worker, dan pemisahan TradingJournal
+
+### 1. Tes otomatis (tanpa dependensi tambahan)
+- `npm test` menjalankan 27 tes dengan test runner bawaan Node (`node --test`).
+- `tests/journalMath.test.mjs` (18 tes): fmtMoney, parse/format isian uang, round2, computeRows (start, target 3%, batas loss -4%, saldo berantai, withdraw), computeStats (winrate, RR, kasus kosong), periodGrowthPercent, computeDailyRiskGuard (ambang safe 75% / warning / limit 100%, penarikan bukan kerugian, komisi, modal 0, memakai saldo hari sebelumnya), computeLotRecommendation, tingkat modal referensi, dan fungsi tanggal (hari lokal, Senin sebagai awal minggu).
+- `tests/worker.test.mjs` (9 tes): pembatas permintaan, penolakan Origin lintas asal, validasi host push, rute statis, dan 404.
+- Nilai harapan dihitung tangan. Diuji dengan merusak kode sengaja (target 5%, ambang warning 80%, batas analyze 1000): tiga tes yang relevan gagal, jadi tes benar-benar menjaga angka.
+
+### 2. Build lebih stabil
+- `package.json`: `engines.node >= 20`, skrip `test`. Penguncian rollup 4.34.8 dari v1.9.73 tetap.
+- Lockfile belum bisa dibuat di sini (tanpa jaringan). Lihat langkah di balasan: jalankan `npm install` di komputer Anda lalu commit `package-lock.json`, dan hapus lockfile lain bila ada.
+
+### 3. Worker
+- Pembatas permintaan per IP (best-effort lewat KV): `/api/ai-news/analyze` maksimal 10 per 10 menit, `/api/ai-news/subscribe` maksimal 20 per jam. Lewat batas dijawab 429 dengan pesan Indonesia. Bila KV tidak ada atau gagal, permintaan tetap dilayani (fitur tidak terganggu).
+- Pemeriksaan yang sudah ada tidak diubah: penolakan POST lintas asal, daftar host push, batas panjang endpoint, jeda 1 menit tes push, pembersihan teks.
+- Perlu deploy ulang Worker agar aktif.
+
+### 4. Pemisahan TradingJournal.jsx (1.893 menjadi 1.774 baris)
+- Dipindah apa adanya ke file sendiri: `CalendarPopover.jsx`, `MonthActionMenu.jsx`, `MonthDropdown.jsx`. Kondisi tampil tetap di induk; semua state dan fungsi dikirim lewat props.
+- Diperiksa dengan tsc: tidak ada nama yang hilang di semua komponen. Belum diuji di aplikasi berjalan.
+
+### 5. Sinkronisasi dua perangkat
+- Diperiksa, tidak diubah. Penyimpanan jurnal sudah memakai penulisan bersyarat (`setIfMatch` dengan `updated_at`), deteksi konflik, dan tidak menimpa diam-diam; data gagal simpan ditahan untuk dicoba ulang.
+
+### Tidak berubah
+Tampilan, perhitungan, struktur data, dan semua file lain.
+
+---
+
+## v1.9.89 — Latar kartu sedikit ngeblur + garis bawah grafik Pertumbuhan Saldo diperjelas
+
+Menyentuh `src/CardHeader.jsx`, `src/RiskGuardCard.jsx`, `src/TargetSimulator.jsx`, `src/TradingJournal.jsx`, dan versi di `package.json`.
+
+### Perubahan
+- Semua kartu (CardShell, Risk Guard, kotak error Simulasi) kini punya blur halus (6px) pada latar di belakangnya. Warna latar kartu (`--surface-soft`) tidak diubah.
+- Blur dipasang lewat lapisan `GlassLayer` di belakang isi kartu, bukan filter pada kartunya, supaya menu dan elemen fixed/absolute di dalam kartu tidak berubah perilaku. Kartu pemakainya diberi `isolation: isolate`.
+- Grafik Pertumbuhan Saldo (tampilan Garis, Batang, dan Area): garis sumbu horizontal bawah kini sama jelasnya dengan garis sumbu vertikal (warna `tick`, opacity 0.45), sebelumnya memakai warna grid yang samar.
+
+### Tidak berubah
+Perhitungan, state, data grafik, grid, dan grafik lain (Perbandingan Bulan, Statistik, Simulasi), serta semua file lain.
+
+### Pengujian
+Efek blur diuji di Chromium dengan struktur yang sama (container-type, isolation, lapisan blur): latar tersamarkan, teks tetap tajam. Sintaks JSX dicek dengan tsc. Belum diuji di iPhone (Safari) maupun build Vite penuh.
+
+---
+
 ## v1.9.88 — Kartu bulan aktif memakai gaya kotak dalam (bukan emas)
 
 Hanya tampilan. Menyentuh `src/TradingJournal.jsx` (gaya satu kotak) dan versi di `package.json`.

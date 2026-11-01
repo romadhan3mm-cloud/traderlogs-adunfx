@@ -55,9 +55,9 @@ export default function SetupStatsSection({ months, open, onToggle }) {
                 <Box label="Sesuai setup" data={st.withSetup} tone="var(--green)" />
                 <Box label="Tanpa setup" data={st.noSetup} tone="var(--red)" />
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: s(6, 3) }}>
-                {st.byTag.filter((t) => t.days > 0).map((t) => (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: s(8, 4), fontSize: s(13, 10), padding: `${s(7, 4)} ${s(10, 5)}`, borderRadius: BOX_RADIUS, background: INNER_BG, border: INNER_BORDER }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {st.byTag.filter((t) => t.days > 0).map((t, i) => (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: s(8, 4), fontSize: s(13, 10), padding: `${s(8, 4)} ${s(4, 2)}`, borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
                     <span style={{ flex: "1 1 0", minWidth: 0, fontWeight: 700, color: t.id === NO_SETUP_ID ? "var(--red)" : "var(--text)" }}>{t.label}</span>
                     <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>{t.days} hari · {pct(t.winrate)}</span>
                     <span className="tj-mono" style={{ minWidth: 64, textAlign: "right", fontWeight: 700, color: netColor(t.net), whiteSpace: "nowrap" }}>{netText(t.net)}</span>
