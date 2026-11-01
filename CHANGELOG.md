@@ -6,6 +6,22 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.109 — Grafik pertumbuhan saldo default ke jenis Area
+
+Menyentuh `src/TradingJournal.jsx` (satu nilai awal state), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Grafik pertumbuhan saldo kini tampil sebagai grafik Area saat aplikasi dibuka. Sebelumnya default-nya Garis.
+- Pilihan Garis, Batang, dan Area di menu grafik tetap ada dan bisa diganti seperti biasa.
+
+### Tidak berubah
+Isi dan gaya ketiga jenis grafik, menu pilihan, hitungan saldo, `journalMath.js`, `StatsCard.jsx`, penyimpanan/backup, data, dan semua file lain. Pilihan jenis grafik tetap tidak disimpan (kembali ke Area setiap aplikasi dibuka, sama seperti perilaku sebelumnya).
+
+### Pengujian
+`npm test` lulus. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
 ## v1.9.108 — Pita Max Drawdown disusun vertikal rata tengah
 
 Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
