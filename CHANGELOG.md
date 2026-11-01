@@ -6,6 +6,23 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.106 — Profit Bersih ditambahkan ke blok statistik ekspor Excel
+
+Menyentuh `src/TradingJournal.jsx` (satu baris di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Blok statistik di file Excel hasil ekspor kini punya baris "Profit Bersih" tepat setelah "Total Komisi": profit - loss - komisi untuk bulan yang diekspor, dibulatkan 2 desimal. Penarikan (WD) tidak ikut. Rumus sama dengan angka Profit Bersih di kartu Statistik.
+- Dihitung langsung di blok ekspor; `computeStats` tidak diubah.
+- Baris di bawahnya (Win Trades, Loss Trades, Winrate, Profit Factor, End Balance) bergeser satu baris ke bawah.
+
+### Tidak berubah
+`computeStats` dan `journalMath.js`, kolom dan susunan sheet lain, nama file, logic ekspor/impor, backup, dan semua file lain. File Excel lama tidak punya baris ini.
+
+### Pengujian
+`npm test` lulus. Ekspor Excel belum dicoba langsung.
+
+---
+
 ## v1.9.105 — Label RR di ekspor Excel diganti "Profit Factor"
 
 Hanya label. Menyentuh `src/TradingJournal.jsx` (satu string di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.

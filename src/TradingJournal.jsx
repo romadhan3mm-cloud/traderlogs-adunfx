@@ -710,6 +710,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       ["Total Profit", Number(stats.totalProfit.toFixed(2))],
       ["Total Loss", -Number(stats.totalLoss.toFixed(2))],
       ["Total Komisi", -Number(stats.totalKomisi.toFixed(2))],
+      ["Profit Bersih", Number((stats.totalProfit - stats.totalLoss - stats.totalKomisi).toFixed(2))],
       ["Win Trades", stats.winTrades],
       ["Loss Trades", stats.lossTrades],
       ["Winrate", stats.winrate === null ? "N/A" : `${(stats.winrate * 100).toFixed(1)}%`],
