@@ -6,7 +6,7 @@ import AINews from "./AINews.jsx";
 import TargetSimulator from "./TargetSimulator.jsx";
 import RiskGuardCard from "./RiskGuardCard.jsx";
 import StatsCard from "./StatsCard.jsx";
-import SetupStatsCard from "./SetupStatsCard.jsx";
+import SetupStatsSection from "./SetupStatsSection.jsx";
 import { SETUP_TAGS, SETUP_CHECKLIST, NO_SETUP_ID } from "./setupConfig.js";
 import CalendarPopover from "./CalendarPopover.jsx";
 import MonthActionMenu from "./MonthActionMenu.jsx";
@@ -45,6 +45,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCapitalRef, setShowCapitalRef] = useState(false);
+  const [showSetupStats, setShowSetupStats] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [menuOpenFor, setMenuOpenFor] = useState(null);
@@ -1427,10 +1428,10 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
                   </tbody>
                 </table>
               </div>
-            </CardShell>
 
-            {/* Statistik Setup: tepat di bawah Input Transaksi, terlipat bawaan (ringkasan satu baris) */}
-            <SetupStatsCard months={months} />
+              {/* Statistik Setup: kartu dalam di dalam Input Transaksi (seperti Capital Lot Reference di kartu Rekomendasi Lot) */}
+              <SetupStatsSection months={months} open={showSetupStats} onToggle={() => setShowSetupStats((v) => !v)} />
+            </CardShell>
 
             {/* Statistik: kartu bergaya baru (cincin winrate + 4 kartu angka + persentase periode). Hanya tampilan; angka dari stats & growthPct di atas */}
             <StatsCard
