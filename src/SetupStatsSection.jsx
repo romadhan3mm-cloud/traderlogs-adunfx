@@ -1,7 +1,7 @@
 import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { fmtMoney } from "./journalMath.js";
-import { mix, s, INNER_BG, INNER_BORDER, BOX_RADIUS } from "./CardHeader.jsx";
+import { BLUE, mix, s, INNER_BG, INNER_BORDER, BOX_RADIUS } from "./CardHeader.jsx";
 import { computeSetupStats, NO_SETUP_ID } from "./setupConfig.js";
 
 // Bagian "Statistik Setup" di dalam kartu Input Transaksi (kartu dalam + tombol emas, seperti Capital Lot Reference
@@ -33,15 +33,15 @@ export default function SetupStatsSection({ months, open, onToggle }) {
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        style={{ width: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: `${s(11, 6)} ${s(40, 24)}`, borderRadius: s(10, 6), border: "1.5px solid var(--gold)", background: open ? mix("var(--gold)", 15) : "transparent", color: "var(--gold)", fontSize: s(15, 9.5), fontWeight: 800, letterSpacing: ".02em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: s(8, 4), padding: `${s(4, 2)} ${s(6, 3)} ${s(10, 5)}`, border: "none", borderBottom: `1px solid ${mix(BLUE, 55)}`, borderRadius: 0, background: "transparent", color: "var(--text)", fontSize: s(15, 9.5), fontWeight: 800, textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
       >
         <span>Statistik Setup</span>
-        <span style={{ position: "absolute", right: s(16, 8), top: "50%", transform: "translateY(-50%)", display: "inline-flex" }}>
+        <span style={{ display: "inline-flex", color: "var(--muted)" }}>
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </span>
       </button>
       {!open && (
-        <div className="tj-mono" style={{ fontSize: s(12, 9), color: "var(--muted)", textAlign: "center", marginTop: s(8, 4) }}>{summary}</div>
+        <div className="tj-mono" style={{ fontSize: s(12, 9), color: "var(--muted)", textAlign: "center", marginTop: s(10, 5) }}>{summary}</div>
       )}
       {open && (
         <div style={{ marginTop: s(10, 5) }}>

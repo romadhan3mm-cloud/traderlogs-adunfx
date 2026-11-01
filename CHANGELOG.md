@@ -6,6 +6,27 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.103 — Tombol emas Statistik Setup diganti judul berpembatas
+
+Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Alasan
+Di kartu Input Transaksi ada dua kotak berbingkai emas (Tambah Transaksi dan STATISTIK SETUP) yang terlihat seperti tombol yang sama. Emas dikembalikan khusus untuk aksi utama.
+
+### Perubahan
+- Statistik Setup tetap kartu dalam (latar `INNER_BG`, garis `INNER_BORDER`, radius sama).
+- Tombol berbingkai emas diganti baris judul "Statistik Setup" (`var(--text)`, 800) dengan panah `var(--muted)` di kanan. Baris ini tetap bisa diketuk untuk buka-tutup.
+- Di bawah judul ada garis pembatas `1px solid mix(BLUE, 55)`, sama dengan garis di bawah judul kartu (`CardHeader`).
+- Baris ringkasan terlipat dan isi saat terbuka tidak berubah.
+
+### Tidak berubah
+Hitungan (`computeSetupStats`), data, isi saat terbuka (dua kotak ringkasan, baris per tag), ringkasan terlipat, dan semua file lain.
+
+### Pengujian
+`npm test` lulus. Sintaks JSX dicek dengan tsc. Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
 ## v1.9.102 — Profit Bersih ditambahkan di bawah cincin winrate
 
 Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
