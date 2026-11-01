@@ -713,7 +713,7 @@ export default function TradingJournalApp({ userEmail, onLogout } = {}) {
       ["Win Trades", stats.winTrades],
       ["Loss Trades", stats.lossTrades],
       ["Winrate", stats.winrate === null ? "N/A" : `${(stats.winrate * 100).toFixed(1)}%`],
-      ["RR", stats.rr === null ? "N/A" : stats.rr.toFixed(2)],
+      ["Profit Factor", stats.rr === null ? "N/A" : stats.rr.toFixed(2)],
       ["End Balance", Number((rows.length ? rows[rows.length - 1].end : m.initialBalance).toFixed(2))],
     ];
 

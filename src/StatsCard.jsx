@@ -244,7 +244,7 @@ export default function StatsCard({ stats, growth, periodRows = {} }) {
             <MetricCard
               bg={GRAD.blue}
               icon={<Svg size="55%" stroke={2.2}><path d="M4 9h13l-3-3M20 15H7l3 3" /></Svg>}
-              label="RR (Risk Reward)"
+              label="Profit Factor"
               value={rrText}
             />
           </div>

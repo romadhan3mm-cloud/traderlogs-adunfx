@@ -6,6 +6,39 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.105 — Label RR di ekspor Excel diganti "Profit Factor"
+
+Hanya label. Menyentuh `src/TradingJournal.jsx` (satu string di blok statistik ekspor), `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Baris statistik di file Excel hasil ekspor: "RR" menjadi "Profit Factor", supaya sama dengan kartu Statistik (v1.9.104). Nilainya sama.
+
+### Tidak berubah
+Rumus, kolom dan susunan sheet, nama file, logic ekspor/impor, backup, dan semua file lain. File Excel lama yang sudah diunduh tetap berlabel "RR".
+
+### Pengujian
+Hanya string label. `npm test` lulus; ekspor Excel belum dicoba langsung.
+
+---
+
+## v1.9.104 — Label "RR (Risk Reward)" diganti "Profit Factor"
+
+Hanya label. Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Alasan
+Angkanya adalah total profit dibagi total loss (`stats.rr` di `computeStats`), yaitu profit factor, bukan risk reward per transaksi. Label lama menyesatkan.
+
+### Perubahan
+- Label kartu angka di Statistik: "RR (Risk Reward)" menjadi "Profit Factor". Nilai dan format (mis. `2.15x`) sama.
+
+### Tidak berubah
+Rumus (`computeStats`, field `rr`), tes, ekspor Excel (barisnya masih berlabel "RR"), dan semua file lain.
+
+### Pengujian
+Hanya string label; tampilan belum diuji di HP.
+
+---
+
 ## v1.9.103 — Tombol emas Statistik Setup diganti judul berpembatas
 
 Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
