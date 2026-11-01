@@ -6,6 +6,23 @@ Aturan: perubahan baru ditambahkan di sini (bagian atas), bukan sebagai file ter
 
 ---
 
+## v1.9.102 — Profit Bersih ditambahkan di bawah cincin winrate
+
+Menyentuh `src/StatsCard.jsx`, `CHANGELOG.md`, dan versi di `package.json`.
+
+### Perubahan
+- Di bawah cincin winrate (di luar cincin) kini ada label kecil "Profit Bersih" dan angkanya: `profit - loss - komisi` untuk bulan aktif, sama seperti kartu angka lain di Statistik. Hijau bila positif, merah bila negatif, `var(--text)` bila nol.
+- Penarikan (WD) tidak ikut dihitung, karena bukan hasil trading (sama dengan aturan Risk Guard dan `computeRows`).
+- Cincin dibungkus satu `div` kolom supaya label bisa di bawahnya; ukuran dan perilaku cincin tidak berubah.
+
+### Tidak berubah
+`computeStats` dan `journalMath.js`, empat kartu angka, grafik, cincin winrate, dan semua file lain.
+
+### Pengujian
+Tampilan belum diuji di HP maupun build Vite penuh; tema terang dan gelap belum dicek.
+
+---
+
 ## v1.9.101 — Rincian per tag di Statistik Setup tidak lagi berbentuk kartu
 
 Hanya tampilan. Menyentuh `src/SetupStatsSection.jsx` (gaya baris per tag), `CHANGELOG.md`, dan versi di `package.json`.

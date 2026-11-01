@@ -1,10 +1,11 @@
 import React from "react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from "recharts";
-import { fmtMoney } from "./journalMath.js";
+import { fmtMoney, round2 } from "./journalMath.js";
 import { BLUE, mix, s, INNER_BG, INNER_BORDER, CardShell, CardHeader, HeaderBadge, IconBadge, GRAD, BOX_RADIUS } from "./CardHeader.jsx";
 
 // Tampilan kartu Statistik. Komponen ini HANYA menampilkan angka yang sudah dihitung di TradingJournal
-// (stats + persentase harian/mingguan/bulanan/tahunan); tidak ada perhitungan baru.
+// (stats + persentase harian/mingguan/bulanan/tahunan). Satu-satunya hitungan di sini: Profit Bersih = profit - loss - komisi
+// (penarikan/WD tidak ikut, karena bukan hasil trading).
 // Warna teks/latar/garis memakai variabel tema supaya ikut tema terang/gelap seperti kartu lain.
 
 function Svg({ size = 20, children, color = "currentColor", stroke = 2 }) {
@@ -189,6 +190,9 @@ export default function StatsCard({ stats, growth, periodRows = {} }) {
   const winrateText = stats.winrate === null ? "—" : `${(stats.winrate * 100).toFixed(0)}%`;
   const winratePct = stats.winrate === null ? null : stats.winrate * 100;
   const lossText = stats.totalLoss > 0 ? `-${fmtMoney(stats.totalLoss)}` : fmtMoney(0);
+  const netProfit = round2(stats.totalProfit - stats.totalLoss - stats.totalKomisi);
+  const netText = `${netProfit > 0 ? "+" : ""}${fmtMoney(netProfit)}`;
+  const netColor = netProfit > 0 ? "var(--green)" : netProfit < 0 ? "var(--red)" : "var(--text)";
   const rrText = stats.rr === null ? "—" : `${stats.rr.toFixed(2)}x`;
   const pctColor = (p) => (p === null ? "var(--muted)" : p >= 0 ? "var(--green)" : "var(--red)");
   const pctText = (p) => (p === null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`);
@@ -210,7 +214,13 @@ export default function StatsCard({ stats, growth, periodRows = {} }) {
 
         {/* Body: cincin winrate + 4 kartu angka */}
         <div style={{ display: "flex", flexWrap: "nowrap", alignItems: "center", justifyContent: "center", gap: s(12, 5) }}>
-          <WinRing winratePct={winratePct} winrateText={winrateText} winTrades={stats.winTrades} lossTrades={stats.lossTrades} />
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <WinRing winratePct={winratePct} winrateText={winrateText} winTrades={stats.winTrades} lossTrades={stats.lossTrades} />
+            <div style={{ marginTop: s(10, 5), textAlign: "center" }}>
+              <div style={{ fontSize: s(14, 8.5), color: "var(--muted)", lineHeight: 1.2 }}>Profit Bersih</div>
+              <div className="tj-mono" style={{ fontSize: s(22, 12), fontWeight: 800, color: netColor, marginTop: s(3, 1), whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{netText}</div>
+            </div>
+          </div>
           <div style={{ flex: "1 1 0", minWidth: 0, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: s(10, 4) }}>
             <MetricCard
               bg={GRAD.green}
